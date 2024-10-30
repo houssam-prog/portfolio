@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Houssam - personal portfolio</title>
+
+  <!-- 
+    - favicon
+  -->
+  <link rel="shortcut icon" href="./favicon.svg" type="image/svg+xml">
+
+  <!-- 
+    - custom css link
+  -->
+  <link rel="stylesheet" href="./assets/css/style.css">
+
+  <!-- 
+    - google font link
+  -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@700&family=Roboto:wght@400;700&family=Saira+Stencil+One&display=swap"
+    rel="stylesheet">
+</head>
+
+<body id="top" class="dark_theme">
+
+  <!-- 
+    - #HEADER
+  -->
+
+  <header class="header" data-header>
+    <div class="container">
+
+      <h1 class="h1 logo">
+        <a href="#">Houssam<span>.</span></a>
+      </h1>
+
+      <div class="navbar-actions">
+
+        <select name="language" id="lang">
+          <option value="en">En</option>
+          <option value="ar">Ar</option>
+        </select>
+
+        <button class="theme-btn" aria-label="Change Theme" title="Change Theme" data-theme-btn>
+          <span class="icon"></span>
+        </button>
+
+      </div>
+
+      <button class="nav-toggle-btn" aria-label="Toggle Menu" title="Toggle Menu" data-nav-toggle-btn>
+        <span class="one"></span>
+        <span class="two"></span>
+        <span class="three"></span>
+      </button>
+
+      <nav class="navbar" data-navbar>
+        <ul class="navbar-list">
+
+          <li>
+            <a href="#home" class="navbar-link">Home.</a>
+          </li>
+
+          <li>
+            <a href="#about" class="navbar-link">About.</a>
+          </li>
+
+          <li>
+            <a href="#skills" class="navbar-link">Skills.</a>
+          </li>
+
+          <li>
+            <a href="#portfolio" class="navbar-link">Portfolio.</a>
+          </li>
+
+          <li>
+            <a href="#contact" class="navbar-link">Contact.</a>
+          </li>
+
+        </ul>
+      </nav>
+
+    </div>
+  </header>
+
+
+
+
+
+  <main>
+    <article class="container">
+
+      <!-- 
+        - #HERO
+      -->
+
+      <!-- <section class="hero" id="home">
+
+        <figure class="hero-banner">
+
+          <picture>
+            <source srcset="assets\images\profile-pic.png" media="(min-width: 268px)">
+            <source srcset="./assets/images/hero-banner-md.png" media="(min-width: 500px)">
+            <img src="./assets/images/hero-banner-sm.png" alt="A man in a blue shirt with a happy expression"
+              class="w-100">
+          </picture>
+
+        </figure>
+
+        <div class="hero-content">
+
+          <h2 class="h2 hero-title">We Design & Build Creative Products</h2>
+
+          <a href="#contact" class="btn btn-primary">Get in touch</a>
+
+        </div>
+
+        <ul class="hero-social-list">
+
+          <li>
+            <a href="#" class="hero-social-link">
+              <ion-icon name="logo-facebook"></ion-icon>
+
+              <div class="tooltip">Facebook</div>
+            </a>
+          </li>
+
+          <li>
+            <a href="#" class="hero-social-link">
+              <ion-icon name="logo-twitter"></ion-icon>
+
+              <div class="tooltip">Twitter</div>
+            </a>
+          </li>
+
+          <li>
+            <a href="#" class="hero-social-link">
+              <ion-icon name="logo-linkedin"></ion-icon>
+
+              <div class="tooltip">Linkedin</div>
+            </a>
+          </li>
+
+        </ul>
+
+        <a href="#stats" class="scroll-down">Scroll</a>
+
+      </section> -->
+
+
+
+
+
+      <!-- 
+        - #STATS
+      -->
+<!-- 
+      <section class="stats" id="stats">
+        <ul class="stats-list">
+
+          <li>
+            <a href="#" class="stats-card">
+
+              <div class="card-icon">
+                <img src="./assets/images/stats-card_icon-1.png" alt="Badge icon">
+              </div>
+
+              <h2 class="h2 card-title">
+                12+ <strong>Years of Experience</strong>
+              </h2>
+
+              <ion-icon name="chevron-forward-outline"></ion-icon>
+
+            </a>
+          </li>
+
+          <li>
+            <a href="#" class="stats-card">
+
+              <div class="card-icon">
+                <img src="./assets/images/stats-card_icon-2.png" alt="Checkmark icon">
+              </div>
+
+              <h2 class="h2 card-title">
+                230+ <strong>Completed Projects</strong>
+              </h2>
+
+              <ion-icon name="chevron-forward-outline"></ion-icon>
+
+            </a>
+          </li>
+
+          <li>
+            <a href="#" class="stats-card">
+
+              <div class="card-icon">
+                <img src="./assets/images/stats-card_icon-3.png" alt="Peoples rating icon">
+              </div>
+
+              <h2 class="h2 card-title">
+                95+ <strong>Happy Clients</strong>
+              </h2>
+
+              <ion-icon name="chevron-forward-outline"></ion-icon>
+
+            </a>
+          </li>
+
+        </ul>
+      </section> -->
+
+
+
+
+
+      <!-- 
+        - #ABOUT
+      -->
+
+      <section id="about" class="about">
+        <div class="about-banner">
+          <!-- Gardez votre image actuelle ou changez-la selon vos préférences -->
+          <img src="assets\images\profile-pic.png" class="w-100" alt="Portrait professionnel">
+        </div>
+      
+        <div class="about-content section-content">
+          <p class="section-subtitle">À Propos de Moi</p>
+      
+          <h2 class="h3 section-title">Houssam BELKHARACHI</h2>
+      
+          <p class="section-text">
+            Ingénieur centralien avec un Post-Graduate en Data Science de l'École Centrale de Marseille, je combine excellence académique et expertise approfondie en Intelligence Artificielle. Fort d'une approche innovante et pragmatique, je transforme les défis technologiques complexes en solutions concrètes et performantes. À la recherche de nouveaux challenges, je souhaite mettre mon expertise au service d'une entreprise ambitieuse pour façonner l'avenir numérique.
+          </p>
+      
+          <div class="btn-group">
+            <a href="https://drive.google.com/file/d/1gLKql3kp81MrSb3dPmWk752jph1Td6m8/view?usp=sharing" class="btn btn-primary" target="_blank">
+              <ion-icon name="download-outline"></ion-icon>
+              Télécharger CV
+            </a>
+           </div>
+           
+           <style>
+           .btn-group .btn ion-icon {
+            margin-right: 8px;
+            font-size: 1.1em;
+            vertical-align: middle;
+           }
+           
+           .btn-group .btn:hover ion-icon {
+            transform: translateY(2px);
+            transition: transform 0.3s ease;
+           }
+           </style>
+        </div>
+      </section>
+
+
+      <section class="academic" id="academic">
+        <div class="container">
+          <div class="academic-content section-content">
+            <p class="section-subtitle">Mon Parcours</p>
+            <h2 class="h3 section-title">Cursus Académique</h2>
+            <p class="section-text">
+              Un parcours d'excellence combinant formation d'ingénieur et expertise en Data Science.
+            </p>
+          </div>
+      
+          <div class="timeline-container">
+            <!-- Formation 1 - Diplôme d'Ingénieur Data Science -->
+            <div class="timeline-item">
+              <div class="timeline-content">
+                <h3 class="timeline-title">Diplôme d'Ingénieur en Data Science</h3>
+                <p class="timeline-school">École Centrale Casablanca</p>
+                <div class="timeline-info">
+                  <p class="timeline-location">
+                    <ion-icon name="location-outline"></ion-icon>
+                    Casablanca, Maroc
+                  </p>
+                  <p class="timeline-date">2023 - 2024</p>
+                </div>
+                <p class="timeline-description">
+                  Spécialisation en Science des Données. Formation approfondie en Intelligence Artificielle, Machine Learning et Big Data. Développement de solutions innovantes pour des problématiques réelles.
+                </p>
+              </div>
+              <div class="timeline-dot"></div>
+            </div>
+      
+            <!-- Formation 2 - PostGraduate Centrale Marseille -->
+            <div class="timeline-item">
+              <div class="timeline-content">
+                <h3 class="timeline-title">Diplôme PostGraduate en Data Science</h3>
+                <p class="timeline-school">École Centrale Marseille - DigitalLab</p>
+                <div class="timeline-info">
+                  <p class="timeline-location">
+                    <ion-icon name="location-outline"></ion-icon>
+                    Nice, France
+                  </p>
+                  <p class="timeline-date">2022 - 2023</p>
+                </div>
+                <p class="timeline-description">
+                  Formation avancée (BAC+6) en Data Science et Intelligence Artificielle. Maîtrise des dernières technologies et méthodologies en analyse de données et développement d'applications IA.
+                </p>
+              </div>
+              <div class="timeline-dot"></div>
+            </div>
+      
+            <!-- Formation 3 - Cycle Ingénieur Généraliste -->
+            <div class="timeline-item">
+              <div class="timeline-content">
+                <h3 class="timeline-title">Cycle Ingénieur Généraliste</h3>
+                <p class="timeline-school">École Centrale Casablanca</p>
+                <div class="timeline-info">
+                  <p class="timeline-location">
+                    <ion-icon name="location-outline"></ion-icon>
+                    Casablanca, Maroc
+                  </p>
+                  <p class="timeline-date">2020 - 2022</p>
+                </div>
+                <p class="timeline-description">
+                  Formation d'ingénieur généraliste de haut niveau. Acquisition des fondamentaux en mathématiques, informatique et sciences de l'ingénieur. Développement des compétences techniques et managériales.
+                </p>
+              </div>
+              <div class="timeline-dot"></div>
+            </div>
+      
+            <!-- Formation 4 - Classes Préparatoires -->
+            <div class="timeline-item">
+              <div class="timeline-content">
+                <h3 class="timeline-title">Classes Préparatoires aux Grandes Écoles (PSI)</h3>
+                <p class="timeline-school">Lycée d'Excellence de Benguerir</p>
+                <div class="timeline-info">
+                  <p class="timeline-location">
+                    <ion-icon name="location-outline"></ion-icon>
+                    Benguerir, Maroc
+                  </p>
+                  <p class="timeline-date">2018 - 2020</p>
+                </div>
+                <p class="timeline-description">
+                  Formation intensive en mathématiques, physique et sciences de l'ingénieur. Préparation aux concours des grandes écoles d'ingénieurs. Développement d'une forte capacité d'analyse et de résolution de problèmes.
+                </p>
+              </div>
+              <div class="timeline-dot"></div>
+            </div>
+      
+          </div>
+        </div>
+      </section>
+
+      <section class="skills" id="skills">
+        <!-- Ajoutez ce lien dans votre <head> -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.15.1/devicon.min.css">
+      
+        <div class="skills-content section-content">
+          <p class="section-subtitle">Mes Compétences</p>
+      
+          <h2 class="h3 section-title">Technologies & Compétences Data Science</h2>
+      
+          <p class="section-text">
+            Je maîtrise une large gamme de technologies et méthodologies en Intelligence Artificielle et Data Science.
+          </p>
+        </div>
+      
+        <div class="skills-box">
+          <ul class="skills-list">
+            <!-- Python -->
+            <li>
+              <div class="skill-card">
+                <div class="tooltip">Python</div>
+                <div class="card-icon">
+                  <i class="devicon-python-plain colored"></i>
+                </div>
+              </div>
+            </li>
+      
+            <!-- MySQL -->
+            <li>
+              <div class="skill-card">
+                <div class="tooltip">MySQL</div>
+                <div class="card-icon">
+                  <i class="devicon-mysql-plain colored"></i>
+                </div>
+              </div>
+            </li>
+      
+            <!-- Pandas -->
+            <li>
+              <div class="skill-card">
+                <div class="tooltip">Pandas</div>
+                <div class="card-icon">
+                  <i class="devicon-pandas-original colored"></i>
+                </div>
+              </div>
+            </li>
+      
+            <!-- NumPy -->
+            <li>
+              <div class="skill-card">
+                <div class="tooltip">NumPy</div>
+                <div class="card-icon">
+                  <i class="devicon-numpy-original colored"></i>
+                </div>
+              </div>
+            </li>
+      
+            <!-- TensorFlow -->
+            <li>
+              <div class="skill-card">
+                <div class="tooltip">TensorFlow</div>
+                <div class="card-icon">
+                  <i class="devicon-tensorflow-original colored"></i>
+                </div>
+              </div>
+            </li>
+      
+            <!-- PyTorch -->
+            <li>
+              <div class="skill-card">
+                <div class="tooltip">PyTorch</div>
+                <div class="card-icon">
+                  <i class="devicon-pytorch-original colored"></i>
+                </div>
+              </div>
+            </li>
+      
+            <!-- OpenCV -->
+            <li>
+              <div class="skill-card">
+                <div class="tooltip">OpenCV</div>
+                <div class="card-icon">
+                  <i class="devicon-opencv-plain colored"></i>
+                </div>
+              </div>
+            </li>
+      
+            <!-- Docker -->
+            <li>
+              <div class="skill-card">
+                <div class="tooltip">Docker</div>
+                <div class="card-icon">
+                  <i class="devicon-docker-plain colored"></i>
+                </div>
+              </div>
+            </li>
+      
+            <!-- Git -->
+            <li>
+              <div class="skill-card">
+                <div class="tooltip">Git</div>
+                <div class="card-icon">
+                  <i class="devicon-git-plain colored"></i>
+                </div>
+              </div>
+            </li>
+      
+            <!-- AWS -->
+            <li>
+              <div class="skill-card">
+                <div class="tooltip">AWS</div>
+                <div class="card-icon">
+                  <i class="devicon-amazonwebservices-original colored"></i>
+                </div>
+              </div>
+            </li>
+      
+            <!-- Jupyter -->
+            <li>
+              <div class="skill-card">
+                <div class="tooltip">Jupyter</div>
+                <div class="card-icon">
+                  <i class="devicon-jupyter-plain colored"></i>
+                </div>
+              </div>
+            </li>
+      
+            <!-- MongoDB -->
+            <li>
+              <div class="skill-card">
+                <div class="tooltip">MongoDB</div>
+                <div class="card-icon">
+                  <i class="devicon-mongodb-plain colored"></i>
+                </div>
+              </div>
+            </li>
+            
+            <!-- Apache -->
+            <li>
+              <div class="skill-card">
+                <div class="tooltip">Apache</div>
+                <div class="card-icon">
+                  <i class="devicon-apache-plain colored"></i>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+      
+      <style>
+      /* Ajustements CSS pour les icônes Devicon */
+      .card-icon i {
+        font-size: 2.5rem; /* Ajustez la taille selon vos besoins */
+      }
+      
+      .skill-card {
+        background: var(--bg-secondary);
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-12);
+        transition: transform 0.3s ease;
+      }
+      
+      .skill-card:hover {
+        transform: translateY(-5px);
+      }
+      
+      .skills-list {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px;
+        padding: 20px;
+      }
+      </style>
+
+
+
+
+      <!-- 
+        - #PROJECTS
+
+  - #PROJECTS
+-->
+<section class="projects" id="portfolio">
+  <div class="container">
+    <!-- Section Header -->
+    <div class="section-content">
+      <p class="section-subtitle">Mon Portfolio</p>
+      <h2 class="h3 section-title">Découvrez Mes Projets Récents</h2>
+      <p class="section-text">
+        Je développe des solutions innovantes en intelligence artificielle et traitement des données. 
+        Explorez mes projets ci-dessous pour voir mes réalisations.
+        <span class="text-tip">Cliquez sur les cartes pour découvrir les détails de chaque projet</span>
+       </p>
+       
+       <style>
+       .text-tip {
+        display: block;
+        margin-top: 15px;
+        color: var(--raw-seinna);
+        font-family: var(--ff-poppins);
+        font-size: var(--fs-5);
+        font-weight: 500;
+        letter-spacing: 0.5px;
+       }
+       </style>
+    </div>
+
+    <!-- React Project Gallery Mount Point -->
+    <div id="root"></div>
+  </div>
+</section>
+
+<!-- Place this just before closing body tag -->
+<!-- Dependencies -->
+<script src="https://unpkg.com/react@17/umd/react.development.min.js"></script>
+<script src="https://unpkg.com/react-dom@17/umd/react-dom.development.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<!-- Project Data -->
+<script src="./assets/js/projectData.js"></script>
+
+<!-- Project Gallery Component -->
+<script type="text/babel">
+  // Mount the React component
+  ReactDOM.render(
+    <ProjectGallery />,
+    document.getElementById('project-gallery-root')
+  );
+</script>
+
+
+<!-- <div id="root"></div> -->
+
+<section class="certification" id="certification">
+  <div class="container">
+    <div class="certification-content section-content">
+      <p class="section-subtitle">Mes Certifications</p>
+      <h2 class="h3 section-title">Certifications & Formations</h2>
+      <p class="section-text">
+        Découvrez mes certifications professionnelles en IA, Machine Learning et Développement.
+      </p>
+    </div>
+
+    <div class="certification-list">
+      <!-- Certification Huawei -->
+      <div class="certification-card">
+        <div class="cert-logo">
+          <img src="assets\images\logo_huawei.png" alt="Huawei Logo">
+        </div>
+        <h3 class="cert-title">HCIA-AI Certification</h3>
+        <p class="cert-course">Huawei Certified ICT Associate - AI</p>
+        <p class="cert-date">Septembre 2021</p>
+        <a href="https://learning.huawei.com/portal/certificates/" class="cert-link" target="_blank">
+          Vérifier le certificat
+          <ion-icon name="shield-checkmark-outline"></ion-icon>
+        </a>
+      </div>
+
+      <!-- Certification DeepLearning.AI -->
+      <div class="certification-card">
+        <div class="cert-logo">
+          <img src="assets\images\deeplearning.png" alt="DeepLearning.AI Logo">
+        </div>
+        <h3 class="cert-title">AI For Everyone</h3>
+        <p class="cert-course">DeepLearning.AI & Coursera</p>
+        <p class="cert-date">Avril 2021</p>
+        <a href="https://coursera.org/verify/XB56SM4R6YVG" class="cert-link" target="_blank">
+          Vérifier le certificat
+          <ion-icon name="shield-checkmark-outline"></ion-icon>
+        </a>
+      </div>
+
+      <!-- Certification Google -->
+      <div class="certification-card">
+        <div class="cert-logo">
+          <img src="assets\images\google.png" alt="Google Logo">
+        </div>
+        <h3 class="cert-title">Crash Course on Python</h3>
+        <p class="cert-course">Google & Coursera</p>
+        <p class="cert-date">Avril 2021</p>
+        <a href="https://coursera.org/verify/QDMGD2GXJS9P" class="cert-link" target="_blank">
+          Vérifier le certificat
+          <ion-icon name="shield-checkmark-outline"></ion-icon>
+        </a>
+      </div>
+
+      <!-- Certification IBM -->
+      <div class="certification-card">
+        <div class="cert-logo">
+          <img src="assets\images\ibm.png" alt="IBM Logo">
+        </div>
+        <h3 class="cert-title">Deep Neural Networks with PyTorch</h3>
+        <p class="cert-course">IBM & Coursera</p>
+        <p class="cert-date">Octobre 2021</p>
+        <a href="https://coursera.org/verify/6C9T7T8U7B32" class="cert-link" target="_blank">
+          Vérifier le certificat
+          <ion-icon name="shield-checkmark-outline"></ion-icon>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+
+      <!-- 
+        - #CONTACT
+      -->
+
+<!-- Ajouter dans le head -->
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+
+<!-- Section contact -->
+<section class="contact" id="contact">
+ <div class="contact-content section-content">
+   <p class="section-subtitle">Contact</p>
+
+   <h2 class="h3 section-title">Innovons Ensemble dans l'IA !</h2>
+
+   <p class="section-text">
+     Vous avez un projet ambitieux en IA ? Une idée novatrice à concrétiser ? Échangeons sur vos objectifs et transformons-les en solutions performantes.
+   </p>
+
+   <ul class="contact-list">
+     <li class="contact-list-item">
+       <div class="contact-item-icon">
+         <ion-icon name="location-outline"></ion-icon>
+       </div>
+       <div class="wrapper">
+         <h3 class="h4 contact-item-title">Address:</h3>
+         <address class="contact-info">33 RUE DE BUFFON, 76000 ROUEN</address>
+       </div>
+     </li>
+
+     <li class="contact-list-item">
+       <div class="contact-item-icon">
+         <ion-icon name="call-outline"></ion-icon>
+       </div>
+       <div class="wrapper">
+         <h3 class="h4 contact-item-title">Phone:</h3>
+         <a href="tel:0753432693" class="contact-info">0753432693</a>
+       </div>
+     </li>
+
+     <li class="contact-list-item">
+       <div class="contact-item-icon">
+         <ion-icon name="mail-outline"></ion-icon>
+       </div>
+       <div class="wrapper">
+         <h3 class="h4 contact-item-title">Email:</h3>
+         <a href="mailto:houssam.belkharachi@gmail.com" class="contact-info">houssam.belkharachi@gmail.com</a>
+       </div>
+     </li>
+   </ul>
+ </div>
+
+ <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+
+ <form id="contact-form" class="contact-form">
+  <div class="form-wrapper">
+    <label for="user_name" class="form-label">Name</label>
+    <div class="input-wrapper">
+      <input type="text" name="user_name" id="user_name" required placeholder="Votre nom" class="input-field">
+      <ion-icon name="person-circle"></ion-icon>
+    </div>
+  </div>
+ 
+  <div class="form-wrapper">
+    <label for="user_email" class="form-label">Email</label>
+    <div class="input-wrapper">
+      <input type="email" name="user_email" id="user_email" required placeholder="Votre email" class="input-field">
+      <ion-icon name="mail"></ion-icon>
+    </div>
+  </div>
+ 
+  <div class="form-wrapper">
+    <label for="message" class="form-label">Message</label>
+    <div class="input-wrapper">
+      <textarea name="message" id="message" required placeholder="Votre message..." class="input-field"></textarea>
+      <ion-icon name="chatbubbles"></ion-icon>
+    </div>
+  </div>
+ 
+  <button type="submit" class="btn btn-primary">Envoyer</button>
+ </form>
+ 
+ <script>
+ (function() {
+  emailjs.init("hmiQmbB7R2ncq6EjA");
+ })();
+ 
+ document.getElementById('contact-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+ 
+  var templateParams = {
+    from_name: document.getElementById('user_name').value,
+    message: document.getElementById('message').value,
+    to_name: 'Houssam',
+    user_email: document.getElementById('user_email').value
+  };
+ 
+  emailjs.send('service_1lmvygw', 'template_0cekinj', templateParams)
+    .then(function() {
+      alert('Message envoyé !');
+      document.getElementById('contact-form').reset();
+    })
+    .catch(function(error) {
+      alert('Erreur : ' + JSON.stringify(error));
+    });
+ });
+ </script>
+</section>
+
+
+
+
+
+  <!-- 
+    - #FOOTER
+  -->
+
+  <footer class="footer">
+    <div class="container">
+
+      <p class="h1 logo">
+        <a href="#">
+          Houssam<span>.</span>
+        </a>
+      </p>
+
+      <p class="copyright">
+        &copy; 2024 <a href="#">Houssam BELKHARACHI</a>. All rights reserved
+      </p>
+
+    </div>
+  </footer>
+
+
+
+
+
+  <!-- 
+    - #GO TO TOP
+  -->
+
+  <a href="#top" class="go-top" data-go-top title="Go to Top">
+    <ion-icon name="arrow-up"></ion-icon>
+  </a>
+
+
+
+
+
+  <!-- 
+    - custom js link
+  -->
+  <script src="./assets/js/script.js"></script>
+
+  <!-- 
+    - ionicon link
+  -->
+  <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+<!-- React Scripts -->
+<script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+<!-- Project Gallery Component -->
+<script type="text/babel" src="./assets/js/projectGallery.js"></script>
+
+<!-- Existing Scripts -->
+<script src="./assets/js/script.js"></script>
+<script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+<script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+
+
+
+</body>
+
+</html>

@@ -6,7 +6,7 @@ const projects = [
     company: "Aptar Pharma",
     date: "Mars 2024 - Septembre 2024",
     location: "Val-de-Reuil, France",
-    thumbnail: "assets\\images\\Aptar-Logo.png",
+    thumbnail: "assets/images/Aptar-Logo.png",
     description: "Un système avancé de recherche documentaire utilisant l'IA pour accélérer l'accès à l'information technique.",
     details: {
       achievements: [
@@ -24,7 +24,7 @@ const projects = [
     company: "EDF",
     date: "Mars 2023 - Septembre 2023",
     location: "Moret-Loing-et-Orvanne, France",
-    thumbnail: "assets\\images\\EDF2.png",
+    thumbnail: "assets/images/EDF2.png",
     description: "Système intelligent de maintenance prédictive pour optimiser la performance des installations solaires.",
     details: {
       achievements: [
@@ -43,7 +43,7 @@ const projects = [
     company: "EEWORX & QWAMPLIFY",
     date: "Octobre 2022 - Mars 2023",
     location: "Aix-en-Provence, France",
-    thumbnail: "assets\\images\\QWAMPLIFY.png",
+    thumbnail: "assets/images/QWAMPLIFY.png",
     description: "Solution complète d'extraction automatique de données de documents et traitement d'images.",
     details: {
       achievements: [
@@ -63,7 +63,7 @@ const projects = [
     company: "SOMITIC",
     date: "Mai 2022 - Septembre 2022",
     location: "Marrakech, Maroc",
-    thumbnail: "assets\\images\\SOMITIC2.png",
+    thumbnail: "assets/images/SOMITIC2.png",
     description: "Système intelligent de classification et matching pour les marchés publics.",
     details: {
       achievements: [
@@ -82,7 +82,7 @@ const projects = [
     company: "Royal Air Maroc",
     date: "Septembre 2021 - Octobre 2021",
     location: "Casablanca, Maroc",
-    thumbnail: "assets\\images\\RAM.png",
+    thumbnail: "assets/images/RAM.png",
     description: "Assistant virtuel intelligent pour la gestion automatisée du service client.",
     details: {
       achievements: [
@@ -101,7 +101,7 @@ const projects = [
     company: "Mes Digital Event",
     date: "Juillet 2021 - Septembre 2021",
     location: "Casablanca, Maroc",
-    thumbnail: "assets\\images\\DIGITAL.png",
+    thumbnail: "assets/images/DIGITAL.png",
     description: "Système automatisé de détection et reconnaissance de plaques d'immatriculation.",
     details: {
       achievements: [
@@ -120,7 +120,7 @@ const projects = [
     company: "École Centrale Casablanca & Chainlit",
     date: "Février 2024 - Mars 2024",
     location: "Casablanca, Maroc",
-    thumbnail: "assets\\images\\chainlit.png",
+    thumbnail: "assets/images/chainlit.png",
     description: "Système de recherche avancé combinant traitement de texte et analyse multimodale pour l'accès aux documents médicaux.",
     details: {
       achievements: [
@@ -149,7 +149,7 @@ const projects = [
     company: "École Centrale Casablanca",
     date: "Septembre 2023 - Décembre 2023",
     location: "Casablanca, Maroc",
-    thumbnail: "assets\\images\\Centrale2.png",
+    thumbnail: "assets/images/Centrale2.png",
     description: "Système de transcription audio et matching d'offres d'emploi multilingue.",
     details: {
       achievements: [
@@ -167,7 +167,7 @@ const projects = [
     company: "École Centrale Casablanca",
     date: "Octobre 2023 - Janvier 2024",
     location: "Casablanca, Maroc",
-    thumbnail: "assets\\images\\Centrale2.png",
+    thumbnail: "assets/images/Centrale2.png",
     description: "Système de classification avancé pour la détection de comportements d'enchérisseurs utilisant des techniques de Machine Learning sur données déséquilibrées.",
     details: {
       achievements: [

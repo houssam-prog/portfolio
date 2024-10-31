@@ -88,7 +88,6 @@ const projects = [
       achievements: [
         "Développement d'un chatbot pour la gestion des réservations",
         "Automatisation du traitement des réclamations",
-        "Implémentation du système de gestion des remboursements",
         "Réduction significative de la charge du centre d'appels"
       ],
       tools: ["NLP", "Python", "Machine Learning", "Chatbot Development"]
@@ -150,11 +149,11 @@ const projects = [
     date: "Septembre 2023 - Décembre 2023",
     location: "Casablanca, Maroc",
     thumbnail: "./assets/images/Centrale2.png",
-    description: "Système de transcription audio et matching d'offres d'emploi multilingue.",
+    description: "Système de transcription audio et matching d'offres d'emploi.",
     details: {
       achievements: [
         "Déploiement d'un modèle Speech to text pour le dialecte marocain",
-        "Implémentation d'un système NLP de matching avec les offres d'emploi en français",
+        "Implémentation d'un système NLP de matching avec les offres d'emploi",
         "Optimisation des performances de transcription audio"
       ],
       tools: ["Wav2Vec", "HuggingFace", "NER", "NLP", "Speech Recognition"]

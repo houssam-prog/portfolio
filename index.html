@@ -538,6 +538,9 @@
 
   - #PROJECTS
 -->
+<!-- 
+  - #PROJECTS
+-->
 <section class="projects" id="portfolio">
   <div class="container">
     <!-- Section Header -->
@@ -548,19 +551,7 @@
         Je développe des solutions innovantes en intelligence artificielle et traitement des données. 
         Explorez mes projets ci-dessous pour voir mes réalisations.
         <span class="text-tip">Cliquez sur les cartes pour découvrir les détails de chaque projet</span>
-       </p>
-       
-       <style>
-       .text-tip {
-        display: block;
-        margin-top: 15px;
-        color: var(--raw-seinna);
-        font-family: var(--ff-poppins);
-        font-size: var(--fs-5);
-        font-weight: 500;
-        letter-spacing: 0.5px;
-       }
-       </style>
+      </p>
     </div>
 
     <!-- React Project Gallery Mount Point -->
@@ -568,17 +559,14 @@
   </div>
 </section>
 
-<!-- Place this just before closing body tag -->
-<!-- Dependencies -->
-<script src="https://unpkg.com/react@17/umd/react.development.min.js"></script>
-<script src="https://unpkg.com/react-dom@17/umd/react-dom.development.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<!-- Project Scripts -->
+<script src="https://unpkg.com/react@17/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
 
-<!-- Lucide Icons -->
-<script src="https://unpkg.com/lucide@latest"></script>
-
-<!-- Project Data -->
-<script src="./assets/js/projectData.js"></script>
+<!-- Créez ces deux fichiers dans votre dossier assets/js/ -->
+<script type="text/babel" src="./assets/js/projectData.js"></script>
+<script type="text/babel" src="./assets/js/ProjectGallery.js"></script>
 
 
 
@@ -816,20 +804,18 @@
   <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
 <!-- React Scripts -->
-<script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/react@17/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
 
 <!-- Project Gallery Component -->
 <script type="text/babel" src="./assets/js/projectGallery.js"></script>
 
 <!-- Existing Scripts -->
+<!-- Existing Scripts -->
 <script src="./assets/js/script.js"></script>
 <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
-<script type="text/javascript" src="assets/js/ProjectGallery.js"></script>
-<script type="text/javascript" src="https://unpkg.com/react@17/umd/react.development.js"></script>
-<script type="text/javascript" src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
 
 
 

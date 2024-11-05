@@ -10,11 +10,12 @@ const projects = [
     description: "Un système avancé de recherche documentaire utilisant l'IA pour accélérer l'accès à l'information technique.",
     details: {
       achievements: [
-        "Développement d'un moteur de recherche NLP pour plus d'1 million de documents",
-        "Création d'un chatbot questions-réponses avec 87% de précision", 
-        "Exploration et implémentation des dernières avancées en LLM open source"
+        "Concevoir un moteur de recherche NLP gérant 1M+ documents techniques (PDF, Excel, PowerPoint, Word), réduisant le temps d'accès de 90%",
+        "Développer un chatbot intelligent (LLM/RAG) atteignant 87% de précision pour le support maintenance",
+        "Déployer la solution via Docker pour faciliter l'intégration et la scalabilité",
+        "Explorer et implémenter les dernières avancées en LLM open source"
       ],
-      tools: ["NLP", "LLM", "GPT", "LLAMA", "Mistral", "RAG", "Chainlit", "Streamlit"]
+      tools: ["NLP", "LLM", "GPT", "LLAMA", "Mistral", "RAG", "Chainlit", "Streamlit", "Docker"]
     }
   },
   {
@@ -28,12 +29,11 @@ const projects = [
     description: "Système intelligent de maintenance prédictive pour optimiser la performance des installations solaires.",
     details: {
       achievements: [
-        "Analyse de la dégradation des panneaux via les données des onduleurs",
-        "Prévision précise des performances futures pour la maintenance proactive",
-        "Détection des défauts à l'aide de modèles de ML",
-        "Création d'une interface graphique pour la visualisation des données"
+        "Analyser la dégradation des panneaux via les données des onduleurs pour optimiser la maintenance",
+        "Détecter les anomalies via des modèles ML pour anticiper les pannes",
+        "Créer des tableaux de bord de suivi des performances avec 'Power BI'"
       ],
-      tools: ["Scikit-Learn", "LSTM", "ARIMA", "SARIMA", "Power BI", "Streamlit", "Séries temporelles"]
+      tools: ["Scikit-Learn", "LSTM", "ARIMA", "SARIMA", "Power BI", "Streamlit"]
     }
   },
   {
@@ -47,13 +47,12 @@ const projects = [
     description: "Solution complète d'extraction automatique de données de documents et traitement d'images.",
     details: {
       achievements: [
-        "Développement d'un système OCR pour l'extraction de texte des factures",
-        "Traitement d'images et détection des codes-barres via YOLOv7",
-        "Récupération et prétraitement des données depuis MongoDB et AWS S3",
-        "Extraction de texte à partir de divers formats (PDF, images)",
-        "Implémentation d'un moteur de recherche NLP pour les factures"
+        "Récupérer et prétraiter les données depuis MongoDB et AWS S3",
+        "Implémenter des algorithmes de prétraitement et de redressement d'images",
+        "Développer une solution OCR intégrant des techniques NER pour l'extraction automatique d'informations clés (noms, dates, prix), atteignant un F1-Score de 82%",
+        "Détecter et lire les codes-barres avec pyzbar"
       ],
-      tools: ["OpenCV", "YOLOv7", "PyTesseract", "EasyOCR", "DocTR", "MongoDB", "AWS S3", "PDFMiner"]
+      tools: ["OpenCV", "ResNet", "PyTorch", "OCR", "NLP", "PDFMiner", "MongoDB", "AWS S3"]
     }
   },
   {
@@ -67,10 +66,10 @@ const projects = [
     description: "Système intelligent de classification et matching pour les marchés publics.",
     details: {
       achievements: [
-        "Création d'un modèle de classification pour les offres publiques",
-        "Développement d'un système de scraping des données fournisseurs",
-        "Matching Offres-Fournisseurs avec SBERT et similarité cosinus",
-        "Création d'un tableau de bord interactif avec Streamlit"
+        "Développer un classificateur NLP pour la catégorisation automatique de 500+ offres publiques/jour",
+        "Créer un système de scraping des données fournisseurs",
+        "Implémenter un système de matching SBERT pour appariement offres-fournisseurs",
+        "Concevoir un dashboard Streamlit pour visualisation temps réel"
       ],
       tools: ["Python", "NLP", "SBERT", "Streamlit", "BeautifulSoup", "Transformers"]
     }
@@ -86,9 +85,9 @@ const projects = [
     description: "Assistant virtuel intelligent pour la gestion automatisée du service client.",
     details: {
       achievements: [
-        "Développement d'un chatbot pour la gestion des réservations",
-        "Automatisation du traitement des réclamations",
-        "Réduction significative de la charge du centre d'appels"
+        "Développer un chatbot pour la gestion des réservations",
+        "Automatiser le traitement des réclamations",
+        "Réduire significativement la charge du centre d'appels"
       ],
       tools: ["NLP", "Python", "Machine Learning", "Chatbot Development"]
     }
@@ -96,7 +95,7 @@ const projects = [
   {
     id: 6,
     title: "Détection de Plaques d'Immatriculation",
-    role: "Computer Vision Engineer", 
+    role: "Computer Vision Engineer",
     company: "Mes Digital Event",
     date: "Juillet 2021 - Septembre 2021",
     location: "Casablanca, Maroc",
@@ -104,14 +103,12 @@ const projects = [
     description: "Système automatisé de détection et reconnaissance de plaques d'immatriculation.",
     details: {
       achievements: [
-        "Entraînement de l'algorithme YOLOv3 pour la détection de plaques",
-        "Optimisation des performances de détection en temps réel",
-        "Implémentation d'un système de reconnaissance robuste"
+        "Entraîner l'algorithme YOLOv3 pour détection plaques d'immatriculation (92% précision)",
+        "Optimiser les performances de détection en temps réel"
       ],
       tools: ["YOLO V3", "CNN", "Python", "OpenCV", "Deep Learning"]
     }
   },
-  
   {
     id: 7,
     title: "Système de Recherche d'Information Multimodale",
@@ -123,10 +120,10 @@ const projects = [
     description: "Système de recherche avancé combinant traitement de texte et analyse multimodale pour l'accès aux documents médicaux.",
     details: {
       achievements: [
-        "Développement d'un système RAG multimodal pour l'analyse de documents médicaux",
-        "Benchmarking des LLMs (Gemini, GPT, T5) pour le traitement multimodal",
-        "Implémentation d'une interface utilisateur interactive avec Chainlit",
-        "Optimisation des performances de recherche et d'extraction d'informations"
+        "Développer un système RAG multimodal pour l'analyse de documents médicaux",
+        "Réaliser le benchmarking des LLMs (Gemini, GPT, T5) pour le traitement multimodal",
+        "Implémenter une interface utilisateur interactive avec Chainlit",
+        "Optimiser les performances de recherche et d'extraction d'informations"
       ],
       tools: [
         "Chainlit",
@@ -138,8 +135,7 @@ const projects = [
         "Vector Databases",
         "Medical Information Retrieval"
       ]
-    },
-    mentor: "Yan LeCun"
+    }
   },
   {
     id: 8,
@@ -152,9 +148,9 @@ const projects = [
     description: "Système de transcription audio et matching d'offres d'emploi.",
     details: {
       achievements: [
-        "Déploiement d'un modèle Speech to text pour le dialecte marocain",
-        "Implémentation d'un système NLP de matching avec les offres d'emploi",
-        "Optimisation des performances de transcription audio"
+        "Déployer un modèle Speech to text pour le dialecte marocain",
+        "Implémenter un système NLP de matching avec les offres d'emploi",
+        "Optimiser les performances de transcription audio"
       ],
       tools: ["Wav2Vec", "HuggingFace", "NER", "NLP", "Speech Recognition"]
     }
@@ -170,15 +166,15 @@ const projects = [
     description: "Système de classification avancé pour la détection de comportements d'enchérisseurs utilisant des techniques de Machine Learning sur données déséquilibrées.",
     details: {
       achievements: [
-        "Implémentation de modèles de classification sur des données fortement déséquilibrées",
-        "Application des techniques SMOTE et undersampling pour l'équilibrage des classes",
-        "Optimisation des performances avec RandomForest et GradientBoosting",
-        "Évaluation approfondie via métriques de précision, rappel, F1-score et ROC AUC"
+        "Implémenter des modèles de classification sur des données fortement déséquilibrées",
+        "Appliquer des techniques SMOTE et undersampling pour l'équilibrage des classes",
+        "Optimiser les performances avec RandomForest et GradientBoosting",
+        "Évaluer via métriques de précision, rappel, F1-score et ROC AUC"
       ],
       tools: ["Python", "scikit-learn", "RandomForest", "GradientBoosting", "SMOTE", "StandardScaler"]
     }
   }
- ];
+];
 
 // Le reste du code du composant React reste le même que précédemment
 const ProjectGallery = () => {

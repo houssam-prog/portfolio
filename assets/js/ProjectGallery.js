@@ -2,7 +2,7 @@ const projects = [
   {
     id: 1,
     title: "Moteur de recherche NLP & Chatbot IA",
-    role: "NLP Engineer",
+    role: "Data Scientist & Data Engineer",
     company: "Aptar Pharma",
     date: "Mars 2024 - Septembre 2024",
     location: "Val-de-Reuil, France",
@@ -10,12 +10,13 @@ const projects = [
     description: "Un système avancé de recherche documentaire utilisant l'IA pour accélérer l'accès à l'information technique.",
     details: {
       achievements: [
-        "Concevoir un moteur de recherche NLP gérant 1M+ documents techniques (PDF, Excel, PowerPoint, Word), réduisant le temps d'accès de 90%",
-        "Développer un chatbot intelligent (LLM/RAG) atteignant 87% de précision pour le support maintenance",
+        "Mettre en place d'un pipeline ETL pour l'extraction et transformation de données de 1M+ documents (PDF, Excel, PowerPoint, Word)",
+        "Développer un moteur de recherche sémantique avec ranking intelligent pour une recherche instantanée des documents",
+        "Implémenter un chatbot Q/R basé sur LLM/RAG (87% précision) pour le support maintenance",
         "Déployer la solution via Docker pour faciliter l'intégration et la scalabilité",
         "Explorer et implémenter les dernières avancées en LLM open source"
       ],
-      tools: ["NLP", "LLM", "GPT", "LLAMA", "Mistral", "RAG", "Chainlit", "Streamlit", "Docker"]
+      tools: ["ETL", "NLP", "LLM", "GPT", "LLAMA", "Mistral", "RAG", "Chainlit", "Streamlit", "Docker"]
     }
   },
   {
@@ -57,21 +58,21 @@ const projects = [
   },
   {
     id: 4,
-    title: "Classification des Offres Publiques",
-    role: "Data Scientist",
+    title: "Solution intelligente pour l’appariement offres-fournisseurs",
+    role: "Data Scientist & Data Engineer",
     company: "SOMITIC",
     date: "Mai 2022 - Septembre 2022",
     location: "Marrakech, Maroc",
     thumbnail: "./assets/images/SOMITIC2.png",
-    description: "Système intelligent de classification et matching pour les marchés publics.",
+    description: "Solution automatisée de traitement des offres publiques et d'appariement intelligent avec les fournisseurs",
     details: {
       achievements: [
-        "Développer un classificateur NLP pour la catégorisation automatique de 500+ offres publiques/jour",
-        "Créer un système de scraping des données fournisseurs",
-        "Implémenter un système de matching SBERT pour appariement offres-fournisseurs",
+        "Mettre en place un pipeline ETL pour l'extraction et le traitement de 200+ offres publiques/jour",
+        "Implémenter un système de matching SBERT NLP pour l'appariement offres-fournisseurs",
+        "Orchestrer les flux de travail avec Airflow pour automatiser et gérer les étapes du pipeline ETL",
         "Concevoir un dashboard Streamlit pour visualisation temps réel"
       ],
-      tools: ["Python", "NLP", "SBERT", "Streamlit", "BeautifulSoup", "Transformers"]
+      tools: ["ETL", "SQL", "Python", "NLP", "SBERT", "Streamlit", "BeautifulSoup", "Transformers"]
     }
   },
   {

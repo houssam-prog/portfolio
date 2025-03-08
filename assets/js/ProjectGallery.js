@@ -16,7 +16,7 @@ const projects = [
         "Déployer la solution via Docker pour faciliter l'intégration et la scalabilité",
         "Explorer et implémenter les dernières avancées en LLM open source"
       ],
-      tools: ["ETL", "NLP", "LLM", "GPT", "LLAMA", "Mistral", "RAG", "Chainlit", "Streamlit", "Docker"]
+      tools: ["ETL", "NLP", "LLM", "GPT", "LLAMA", "Mistral", "RAG", "Django","React.js", "Streamlit", "Docker"]
     }
   },
   {
@@ -30,6 +30,7 @@ const projects = [
     description: "Système intelligent de maintenance prédictive pour optimiser la performance des installations solaires.",
     details: {
       achievements: [
+        "Gérer une base de données IoT (capteurs) avec PostgreSQL / TimescaleDB, incluant l’analyse et la transformation des séries temporelles",
         "Analyser la dégradation des panneaux via les données des onduleurs pour optimiser la maintenance",
         "Détecter les anomalies via des modèles ML pour anticiper les pannes",
         "Créer des tableaux de bord de suivi des performances avec 'Power BI'"
@@ -49,9 +50,11 @@ const projects = [
     details: {
       achievements: [
         "Récupérer et prétraiter les données depuis MongoDB et AWS S3",
-        "Implémenter des algorithmes de prétraitement et de redressement d'images",
-        "Développer une solution OCR intégrant des techniques NER pour l'extraction automatique d'informations clés (noms, dates, prix), atteignant un F1-Score de 82%",
-        "Détecter et lire les codes-barres avec pyzbar"
+        "Implémenter des algorithmes de prétraitement et de redressement d’images pour améliorer la qualité des fichiers (Deep Learning)",
+        "Extraire automatiquement des textes à partir d’images au format brut (OCR)",
+        "Définir des règles de gestion pour l’extraction des informations clés (noms, dates, montants) avec une mise en œuvre via des algorithmes NLP (F1-Score de 82%)",
+        "Automatiser la comparaison des données extraites avec les formulaires de demande de remboursement pour valider leur cohérence",
+        "Intégrer les résultats dans PostgreSQL et les indexer pour faciliter leur exploitation ultérieure"
       ],
       tools: ["OpenCV", "ResNet", "PyTorch", "OCR", "NLP", "PDFMiner", "MongoDB", "AWS S3"]
     }

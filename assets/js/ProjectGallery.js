@@ -30,13 +30,14 @@ const projects = [
     description: "Système intelligent de maintenance prédictive pour optimiser la performance des installations solaires.",
     details: {
       achievements: [
-        "Gérer une base de données IoT (capteurs) avec PostgreSQL / TimescaleDB, incluant l’analyse et la transformation des séries temporelles",
-        "Analyser la dégradation des panneaux via les données des onduleurs pour optimiser la maintenance",
-        "Détecter les anomalies via des modèles ML pour anticiper les pannes",
-        "Créer des tableaux de bord de suivi des performances avec 'Power BI'"
+        "Conception d’un système de maintenance prédictive pour panneaux solaires basé sur des données SCADA afin d’éviter les pertes de performance dues aux interventions tardives",
+        "Développement d’un modèle LSTM pour la prédiction de performance et utilisation d’Isolation Forest pour la détection d’anomalies (chute de production, tension anormale, température excessive)",
+        "Déploiement des modèles via une API Flask intégrée à un tableau de bord interactif avec RShiny, incluant visualisations dynamiques et filtres personnalisés",
+        "Amélioration du suivi des performances et de la réactivité des techniciens grâce à une interface en temps réel"
       ],
-      tools: ["Scikit-Learn", "LSTM", "ARIMA", "SARIMA", "Power BI", "Streamlit"]
+      tools: ["Python", "Keras", "Flask", "Isolation Forest", "RShiny", "PostgreSQL", "TimescaleDB"]
     }
+    
   },
   {
     id: 3,

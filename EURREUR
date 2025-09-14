@@ -1,79 +1,24 @@
-$user
-[1] "soufiane.fadili.external@axa.com"
-
-$appSelected
-[1] "AM Fees"
-
-$userSeparator
-[1] ","
-
-$jobName
-[1] "AM fees"
-
-$jobSelected
-[1] 556101689256600
-
-$dmSelected
-[1] "DM_V0"
-
-$ddSelected
-[1] "DD_V0"
-
-$run_version
-[1] "Dev"
-
-$periodSelected
-[1] "No period selected"
-
-$runName
-[1] "SD"
-
-$runsPathType
-[1] 2
-
-$environment
-[1] "DEV"
-
-$skipReport
-[1] FALSE
-
-$input_entity
-[1] "AGR UK"
-
-$input_filter_asset_manager
-[1] "ACM" "AIM"
-
-$input_filter_operating_company
-[1] "(Pool Leader) Catlin Specialty Insurance Company"
-
-$input_filter_local_code_type
-[1] "CUSI"
-
-$input_selected_date
-[1] "2025-04-01"
-
-$runInput
-[1] "7 files from Central + 2 files from Manual upload"
-
-$scopeCount
-[1] "No scope selection"
-
-$entitySelected
-[1] "No scope selection"
-
-$runDate
-[1] "20250914_222657"
-
-$runDateSecondFormat
-[1] "2025-09-14 22:26:57"
-
-
-
-        runParams$appFeatures <- NULL
+# VERSION SIMPLIFIÉE - DIRECTEMENT DANS VOTRE CODE
         dir.create(dirname(jsonPath), recursive = TRUE, showWarnings = FALSE)
         
         jsonlite::write_json(runParams, jsonPath, auto_unbox = TRUE, pretty = TRUE)
         runParams[c("inputSelected", "scopeSelected")] <- NULL
+        
+        # NETTOYAGE SPÉCIFIQUE POUR DATABRICKS
+        # Convertir tous les vecteurs en strings avec virgules
+        for(param_name in names(runParams)) {
+          param_value <- runParams[[param_name]]
+          if(!is.null(param_value) && length(param_value) > 0) {
+            if(is.character(param_value) && length(param_value) > 1) {
+              runParams[[param_name]] <- paste(param_value, collapse = ",")
+            } else if(is.logical(param_value)) {
+              runParams[[param_name]] <- tolower(as.character(param_value))
+            } else if(!is.character(param_value)) {
+              runParams[[param_name]] <- as.character(param_value)
+            }
+          }
+        }
+        
         print("inputSelected")
         print(runParams)
         runId <- call_api_job(
@@ -83,64 +28,3 @@ $runDateSecondFormat
             params = runParams,
             type = "job"
         )
-
-
-call_api_job <- function(url, databricks_token, job_id, params, type = "notebook", retries = 3, timeout_duration = 30) {
-  headers <- add_headers(
-    Authorization = sprintf("Bearer %s", databricks_token),
-    `Content-Type` = "application/json"
-  )
-  if(type == "notebook"){
-    body <- jsonlite::toJSON(
-      list(
-        job_id = job_id,
-        notebook_params = params), auto_unbox = TRUE)
-  }else{
-    body <- jsonlite::toJSON(
-      list(
-        job_id = job_id,
-        job_parameters = params), auto_unbox = TRUE)
-  }
-
-  attempt <- 1
-  while (attempt <= retries) {
-    tryCatch({
-      
-      # Envoyer la requête POST pour lancer le job
-      output_response <- POST(url, headers, body = body)
-      # Vérifier le code HTTP
-      status <- httr::status_code(output_response)
-      # Gérer les codes 4xx explicitement
-      if (status >= 400 && status < 500) {
-        if (status == 403) {
-          return("ERROR 403")
-        } else {
-          stop(sprintf("Client error (%d): %s", status, httr::http_status(output_response)$message))
-        }
-      }
-
-      # Gérer les erreurs serveur (5xx)
-      if (status >= 500) {
-        stop(sprintf("Server error (%d): %s", status, httr::http_status(output_response)$message))
-      }
-      # Récupérer l'ID du run depuis la réponse
-      run_id <- fromJSON(rawToChar(output_response$content))$run_id
-      return(run_id)
-    }, error = function(e) {
-      message(sprintf("Attempt %d failed: %s", attempt, e$message))
-      attempt <<- attempt + 1
-      if (attempt > retries) {
-        stop("Exceeded maximum number of retries")
-      }
-      # Sleep between retries to avoid overwhelming the server
-      Sys.sleep(1)
-    })
-  }
-}
-
-
-
-ERREUR
-Attempt 1 failed: Client error (400): Client error: (400) Bad Request
-Attempt 2 failed: Client error (400): Client error: (400) Bad Request
-Attempt 3 failed: Client error (400): Client error: (400) Bad Request

@@ -52,7 +52,7 @@ generate_widget <- function(type, id, params) {
         disabled = params$disabled %||% FALSE
       )
     },
-    "numericinput" = {
+    "numeric" = {
       # Nouveau widget pour les nombres décimaux
       value_val <- if (!is.null(params$value)) as.numeric(params$value) else params$default %||% 0
       

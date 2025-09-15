@@ -52,6 +52,35 @@ generate_widget <- function(type, id, params) {
         disabled = params$disabled %||% FALSE
       )
     },
+    "numericinput" = {
+      # Nouveau widget pour les nombres décimaux
+      value_val <- if (!is.null(params$value)) as.numeric(params$value) else params$default %||% 0
+      
+      # Si vous utilisez shinyWidgets::numericInputIcon pour un style plus moderne
+      if (params$useIcon %||% FALSE) {
+        shinyWidgets::numericInputIcon(
+          inputId = id,
+          label = label,
+          value = value_val,
+          min = params$min %||% NA,
+          max = params$max %||% NA,
+          step = params$step %||% 0.01,  # Par défaut, précision de 2 décimales
+          icon = list(params$icon %||% NULL),
+          width = params$width %||% NULL
+        )
+      } else {
+        # Version standard Shiny
+        numericInput(
+          inputId = id,
+          label = label,
+          value = value_val,
+          min = params$min %||% NA,
+          max = params$max %||% NA,
+          step = params$step %||% 0.01,  # Par défaut, précision de 2 décimales
+          width = params$width %||% NULL
+        )
+      }
+    },
     "selectinput" = {
       
       if(tolower(params$typeOfOptions) == "foundationlist"){
@@ -80,7 +109,7 @@ generate_widget <- function(type, id, params) {
   )
 }
 
-# Générer un widget shiny selon le type
+# Générer un widget shiny selon le type (JavaScript)
 generate_widget_js <- function(type, id, params) {
   if (!isTRUE(params$visible)) return(NULL)
   switch(
@@ -91,6 +120,24 @@ generate_widget_js <- function(type, id, params) {
         paste0(sapply(params$monthsDisabled-1,js_disable_months_detail, id = paste0(id, "_front")), collapse="\n"),
         js_disable_months_next(id = id, monthsDisabled = params$monthsDisabled-1),
         js_disable_months_prev(id = id, monthsDisabled = params$monthsDisabled-1), sep = "\n")
+    },
+    "numeric" = {
+      # Ajout optionnel de validation JavaScript pour le numeric input
+      if (params$validateOnInput %||% FALSE) {
+        paste0(
+          "// Validation pour ", id, "\n",
+          "$('#", id, "').on('input', function() {\n",
+          "  var val = $(this).val();\n",
+          "  if (val !== '' && !$.isNumeric(val)) {\n",
+          "    $(this).addClass('is-invalid');\n",
+          "  } else {\n",
+          "    $(this).removeClass('is-invalid');\n",
+          "  }\n",
+          "});"
+        )
+      } else {
+        ""
+      }
     },
     ""
   )

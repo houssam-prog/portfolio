@@ -1,30 +1,144 @@
-# VERSION SIMPLIFIÉE - DIRECTEMENT DANS VOTRE CODE
-        dir.create(dirname(jsonPath), recursive = TRUE, showWarnings = FALSE)
-        
-        jsonlite::write_json(runParams, jsonPath, auto_unbox = TRUE, pretty = TRUE)
-        runParams[c("inputSelected", "scopeSelected")] <- NULL
-        
-        # NETTOYAGE SPÉCIFIQUE POUR DATABRICKS
-        # Convertir tous les vecteurs en strings avec virgules
-        for(param_name in names(runParams)) {
-          param_value <- runParams[[param_name]]
-          if(!is.null(param_value) && length(param_value) > 0) {
-            if(is.character(param_value) && length(param_value) > 1) {
-              runParams[[param_name]] <- paste(param_value, collapse = ",")
-            } else if(is.logical(param_value)) {
-              runParams[[param_name]] <- tolower(as.character(param_value))
-            } else if(!is.character(param_value)) {
-              runParams[[param_name]] <- as.character(param_value)
-            }
-          }
+# Utile pour `%||%`
+`%||%` <- function(x, y) if (!is.null(x)) x else y
+
+# Générer un widget shiny selon le type
+generate_widget <- function(type, id, params) {
+  if (!isTRUE(params$visible)) return(NULL)
+  label <- params$label %||% id
+  
+  switch(
+    tolower(type),
+    "datepicker" = {
+      # Préparer la valeur initiale pour le highlighting
+      initial_value <- NULL
+      if (!is.null(params$value)) {
+        initial_value <- as.Date(params$value)
+      }
+      
+      # Préparer les dates à highlight en incluant la valeur initiale
+      highlighted_dates <- params$highlightedDates %||% NULL
+      if (!is.null(initial_value)) {
+        if (is.null(highlighted_dates)) {
+          highlighted_dates <- initial_value
+        } else {
+          highlighted_dates <- c(highlighted_dates, initial_value)
         }
-        
-        print("inputSelected")
-        print(runParams)
-        runId <- call_api_job(
-            url = paste0(Sys.getenv("databricks_host"), Sys.getenv("urlRunJob")),
-            databricks_token = Sys.getenv("databricks_token"),
-            job_id = runParams$jobSelected,
-            params = runParams,
-            type = "job"
+      }
+      
+      div(
+        shinyWidgets::airDatepickerInput(
+          inputId = paste0(id, "_front"),
+          label = HTML(paste0('<span style = "font-size : larger";> <strong><i class="fa-solid fa-calendar-days"></i> ', label , '</strong></span>')),
+          minDate = params$minDate %||% NULL,
+          maxDate = params$maxDate %||% NULL,
+          value = initial_value,
+          view = params$view %||% "days",
+          minView = params$view %||% "days",
+          highlightedDates = highlighted_dates,
+          disabledDates = as.Date(params$disabledDates) %||% NULL,
+          clearButton = params$clearButton %||% TRUE,
+          todayButton = params$todayButton %||% TRUE,
+          autoClose = params$autoClose %||% TRUE,
+          inline = params$inline %||% TRUE
         )
+      )
+    },
+    "checkbox" = {
+      checked_val <- if (!is.null(params$value)) as.logical(params$value) else params$checked %||% FALSE
+      customCheckBox(
+        inputId = id,
+        label = label,
+        checked = checked_val,
+        disabled = params$disabled %||% FALSE
+      )
+    },
+    "selectinput" = {
+      
+      if(tolower(params$typeOfOptions) == "foundationlist"){
+        options <- loadFoundationVariable(params$options)
+      }else if(tolower(params$typeOfOptions) == "variable"){
+        options <- get(params$options)
+      }else if(tolower(params$typeOfOptions) %in% c("dunescopeselector", "entityselector")){
+        options <-isolate(user_entities())
+      }else{
+        options <- unlist(params$options)
+      }
+      # valeur pré-remplie éventuelle
+      selected_val <- params$value %||% NULL
+        # Vérification si selected_val est vide ou multiple
+      if (is_value_empty(selected_val)) {
+        selected_val <- NULL
+      }
+      customSelectWithValues(inputId = id, label = label, icon = params$icon %||% "", message = params$message %||% "Please, make a choice", options = options, disabled = params$disabled, multiple = params$multiple %||% FALSE, selected = selected_val)
+    },
+    "div" = {
+      div(id = id)
+    },
+
+    # fallback
+    div(paste("Unsupported widget type:", type))
+  )
+}
+
+# Générer un widget shiny selon le type
+generate_widget_js <- function(type, id, params) {
+  if (!isTRUE(params$visible)) return(NULL)
+  switch(
+    tolower(type),
+    "datepicker" = {
+      paste(
+        JS_datePicker(id = id, type = params$typeOfDate),
+        paste0(sapply(params$monthsDisabled-1,js_disable_months_detail, id = paste0(id, "_front")), collapse="\n"),
+        js_disable_months_next(id = id, monthsDisabled = params$monthsDisabled-1),
+        js_disable_months_prev(id = id, monthsDisabled = params$monthsDisabled-1), sep = "\n")
+    },
+    ""
+  )
+}
+
+generate_widget_idsTypesParams <- function(type, id, params) {
+  if (!isTRUE(params$visible)) return(NULL)
+  list(id = id, type = type, params = params)
+}
+
+generateRowTitle <- function(title) {
+  div(class = "col-12",
+    tags$p(class = "text-center", style = "font-weight: bold; font-size: xx-large;", title)
+  )
+}
+
+parse_specific_widgets_from_json <- function(json_path, app_name) {
+
+  specificSectionJson <- fromJSON(json_path, simplifyDataFrame = FALSE)
+  specificSectionBool <- length(Filter(function(x) tolower(gsub_underscore_dash(" ", "_", x$app)) == tolower(gsub_underscore_dash(" ", "_", app_name)), specificSectionJson)) > 0
+  if(specificSectionBool){
+    json_data <- fromJSON(json_path, simplifyDataFrame = FALSE)
+    app_data <- Filter(function(x) tolower(gsub_underscore_dash(" ", "_", x$app)) == tolower(gsub_underscore_dash(" ", "_", app_name)), json_data)[[1]]
+    # Ordonner les rows
+    ordered_rows <- app_data$rows[order(sapply(app_data$rows, `[[`, "rowOrder"))]
+    
+    idsTypesParams <- character()
+
+    for (row in ordered_rows) {
+      row_columns <- list()
+      # Ordonner les colonnes
+      ordered_columns <- row$columns[order(sapply(row$columns, `[[`, "columnOrder"))]
+      for (col in ordered_columns) {
+        param_map <- setNames(col$parameters, sapply(col$parameters, `[[`, "id"))
+        idsTypesParams <- c(idsTypesParams,
+          lapply(col$content, function(el) {
+            generate_widget_idsTypesParams(el$type, el$id, param_map[[el$id]])
+          }))
+        idsTypesParams <- Filter(Negate(is.null), idsTypesParams)
+      }
+    }
+
+    ids <- sapply(idsTypesParams, function(el) el$id)
+    types <- sapply(idsTypesParams, function(el) el$type)
+    params <- lapply(idsTypesParams, function(el) el$params)
+    return(list(ids = ids, types = types, params = params))    
+  }else{
+    return(list(ids = "", types = "", params = ""))
+  }
+
+}

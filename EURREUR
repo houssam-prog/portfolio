@@ -146,3 +146,7 @@ process_dashboard_am_fees_report <- function(params) {
     }
     return(data)
 }
+
+
+
+<simpleError in Generate_dashboard_tabs_table(tabs, typseOfTable = rep("DT",     length(tabs))): unused argument (typseOfTable = rep("DT", length(tabs)))>

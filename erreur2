@@ -195,3 +195,83 @@ specific_read <- function(df, appName){
   }
   return(df)
 }
+
+
+
+
+
+
+specific_read <- function(df, appName){
+  if(gsub_underscore_dash(" ", "_", tolower(appName)) == "var_ifrs_17"){
+    
+    # Créer une copie du df original pour les ajouts
+    df_copies <- data.table()
+    
+    # Traiter le fichier Actuarial_All_Goc_Goc_Curr
+    if(any(grepl("Actuarial_All_Goc_Goc_Curr", df$file_name, ignore.case = TRUE))) {
+      # Trouver l'index du fichier Actuarial_All_Goc_Goc_Curr
+      idx_actuarial <- which(grepl("Actuarial_All_Goc_Goc_Curr", df$file_name, ignore.case = TRUE))[1]
+      
+      # Créer une copie avec le nouveau nom
+      copy_actuarial_rep <- df[idx_actuarial]
+      copy_actuarial_rep$file_name <- gsub("Actuarial_All_Goc_Goc_Curr", "Actuarial_All_Goc_Rep_Curr", 
+                                          copy_actuarial_rep$file_name, ignore.case = TRUE)
+      
+      # Lire le fichier CSV original pour modifier les colonnes
+      original_data <- fread(df$tmp_path[idx_actuarial])
+      
+      # Ajouter "_2" à toutes les colonnes
+      new_colnames <- paste0(colnames(original_data), "_2")
+      colnames(original_data) <- new_colnames
+      
+      # Créer un nouveau fichier temporaire avec les colonnes modifiées
+      new_tmp_path <- file.path(dirname(copy_actuarial_rep$tmp_path), 
+                               paste0("Actuarial_All_Goc_Rep_Curr_", basename(copy_actuarial_rep$tmp_path)))
+      fwrite(original_data, new_tmp_path)
+      copy_actuarial_rep$tmp_path <- new_tmp_path
+      
+      # Ajouter à df_copies
+      df_copies <- rbind(df_copies, copy_actuarial_rep)
+    }
+    
+    # Traiter le fichier IFRS17_All_Goc_Goc_Curr
+    if(any(grepl("IFRS17_All_Goc_Goc_Curr", df$file_name, ignore.case = TRUE))) {
+      # Trouver l'index du fichier IFRS17_All_Goc_Goc_Curr
+      idx_ifrs17 <- which(grepl("IFRS17_All_Goc_Goc_Curr", df$file_name, ignore.case = TRUE))[1]
+      
+      # Créer une copie avec le nouveau nom
+      copy_ifrs17_rep <- df[idx_ifrs17]
+      copy_ifrs17_rep$file_name <- gsub("IFRS17_All_Goc_Goc_Curr", "IFRS17_All_Goc_Rep_Curr", 
+                                       copy_ifrs17_rep$file_name, ignore.case = TRUE)
+      
+      # Lire le fichier CSV original pour modifier les colonnes
+      original_data <- fread(df$tmp_path[idx_ifrs17])
+      
+      # Ajouter "_2" à toutes les colonnes
+      new_colnames <- paste0(colnames(original_data), "_2")
+      colnames(original_data) <- new_colnames
+      
+      # Créer un nouveau fichier temporaire avec les colonnes modifiées
+      new_tmp_path <- file.path(dirname(copy_ifrs17_rep$tmp_path), 
+                               paste0("IFRS17_All_Goc_Rep_Curr_", basename(copy_ifrs17_rep$tmp_path)))
+      fwrite(original_data, new_tmp_path)
+      copy_ifrs17_rep$tmp_path <- new_tmp_path
+      
+      # Ajouter à df_copies
+      df_copies <- rbind(df_copies, copy_ifrs17_rep)
+    }
+    
+    # Combiner le df original avec les copies
+    if(nrow(df_copies) > 0) {
+      df <- rbind(df, df_copies)
+    }
+  }
+  
+  return(df)
+}
+
+
+
+if(!is.null(specific_read)){
+  df <- specific_read(df, isolate({user_repository()}))
+}

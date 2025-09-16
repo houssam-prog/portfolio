@@ -4,7 +4,7 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
   observe({
     req(reactiveReportObject$app)
     appSelected <- reactiveReportObject$app
-    if (!tolower(gsub_underscore_dash(" ", "_", appSelected)) %in% c("am_fees")) {
+    if (!tolower(gsub_underscore_dash(" ", "_", appSelected)) %in% c("am_fees_report")) {
       return()
     }
 
@@ -65,8 +65,8 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
             num_cols <- names(df)[sapply(df, is.numeric)]
             df_clean <- df
             
-            # Determine if we need to show totals based on report type
-            show_total <- grepl("calcule|finale", gsub_underscore_dash(" ", "_", tolower(table_name)))
+            # Determine if we need to show totals - only for final report
+            show_total <- grepl("finale|final", gsub_underscore_dash(" ", "_", tolower(table_name)))
             
             if (show_total && length(num_cols) > 0) {
               total_row <- df_clean[, lapply(.SD, function(x) if (is.numeric(x)) sum(x, na.rm = TRUE) else NA), .SDcols = num_cols]
@@ -110,12 +110,8 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
               dt <- DT::formatStyle(dt, columns = 0, target = "row", rows = nrow(df_clean), fontWeight = "bold", backgroundColor = "#f0f8ff")
             }
             
-            # Custom styling based on report type
-            if (grepl("calcule", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
-              dt <- DT::formatStyle(dt, columns = names(df_clean), backgroundColor = "#fff8dc")
-            } else if (grepl("kpi_axa_im", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
-              dt <- DT::formatStyle(dt, columns = names(df_clean), backgroundColor = "#f0fff0")
-            } else if (grepl("finale", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+            # Custom styling - only for final report
+            if (grepl("finale|final", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
               dt <- DT::formatStyle(dt, columns = names(df_clean), backgroundColor = "#fff0f5")
             }
             
@@ -136,24 +132,8 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
       output[[ns(paste0("download_all_data_excel_", tokenUI))]] <- downloadHandler(
         filename = function() paste0("AMFees_AllReports_", Sys.Date(), ".xlsx"),
         content = function(file) {
-          # Create named list for Excel sheets
-          sheet_names <- c(
-            "Rapport_Calcule" = "Rapport de calcule",
-            "KPI_AXA_IM" = "Rapport KPI AXA IM", 
-            "Rapport_Finale" = "Rapport finale"
-          )
-          
-          # Match actual data names with intended sheet names
-          final_list <- list()
-          for(i in seq_along(data_list)) {
-            sheet_name <- names(sheet_names)[i]
-            if(i <= length(sheet_names) && !is.null(sheet_name)) {
-              final_list[[sheet_name]] <- data_list[[i]]
-            } else {
-              final_list[[names(data_list)[i]]] <- data_list[[i]]
-            }
-          }
-          
+          # For testing with single final report
+          final_list <- list("Rapport_Finale" = data_list[[1]])
           openxlsx::write.xlsx(final_list, file)
         }
       )

@@ -32,7 +32,7 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
         tags$div(class = "col-12 mb-2",
           downloadButton(ns(paste0("download_all_data_excel_", tokenUI)), "📦 Download all in Excel", class = "btn btn-primary my-2")
         ),
-        tags$div(class = "col-12", Generate_dashboard_tabs_table(tabs, typseOfTable = rep("DT", length(tabs))))
+        tags$div(class = "col-12", Generate_dashboard_tabs_table(tabs))
       )
 
       insertUI(selector = paste0("#", id, "Content"), ui = ui_root, immediate = TRUE)

@@ -147,3 +147,38 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
     })
   })
 }
+
+
+
+
+
+
+
+
+
+process_dashboard_risk_framework_liquidity <- function(params) {
+    appSelected <- params$runInfo$appSelected
+    run_date <- params$runInfo$runDate
+    environment <- params$environment
+
+    engine_output <- fread(path_admin_param_engine_output, sep = global_separator)
+    tempOutput <- engine_output[tolower(gsub_underscore_dash(" ", "_", engine_output$app)) == tolower(gsub_underscore_dash(" ", "_", appSelected)),]
+    files <- tempOutput[tolower(tempOutput$type) == "file", ]
+    files$tableaddress <- sprintf(as.character(files$tableaddress), run_date)
+    files <- files[!grepl("awa", tolower(files$output)), ]
+
+    prod_path <- paste0(foundationRuns_dbfs_root_path, "/", gsub_underscore_dash(" ", "_", tolower(appSelected)), "/", environment, "/Outputs/", run_date)
+    data <- list()
+    j <- 1
+    for(i in 1:nrow(files)){
+        file_path <- file.path(prod_path, files$tableaddress[i])
+        if(grepl(".csv", file_path)){
+            data[[j]] <- fread(file_path, sep = global_separator)
+            names(data)[j] <- files$output[i]
+        }
+        j <- j + 1
+    }
+
+
+    return(data)
+}

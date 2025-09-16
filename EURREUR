@@ -1,10 +1,10 @@
-createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
+createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
   ns <- NS(id)
 
   observe({
     req(reactiveReportObject$app)
     appSelected <- reactiveReportObject$app
-    if (!tolower(gsub_underscore_dash(" ", "_", appSelected)) %in% c("rf_liquidity")) {
+    if (!tolower(gsub_underscore_dash(" ", "_", appSelected)) %in% c("am_fees")) {
       return()
     }
 
@@ -23,15 +23,14 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
         names(data_list) <- c("Report")
       }
 
-
-      # Build tabs
+      # Build tabs for the 3 specific reports
       tabs <- Map(function(i) list(id = paste0(id, "-", i, "_", tokenUI), name = names(data_list)[i]), seq_len(length(data_list)))
 
       ui_root <- tags$div(
         id = paste0(id, "ContentAnalysis"),
         class = "row",
         tags$div(class = "col-12 mb-2",
-          downloadButton(ns(paste0("download_all_data_excel_", tokenUI)), "📦 Download all in Excel", class = "btn btn-primary my-2")
+          downloadButton(ns(paste0("download_all_data_excel_", tokenUI)), "📦 Download all reports in Excel", class = "btn btn-primary my-2")
         ),
         tags$div(class = "col-12", Generate_dashboard_tabs_table(tabs, typseOfTable = rep("DT", length(tabs))))
       )
@@ -47,7 +46,7 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
 
           tab_id <- paste0(id, "-", idx, "_", tokenUI)
 
-          # Add per-tab controls (download + plots container) above the DT
+          # Add per-tab controls (download button) above the DT
           insertUI(
             selector = paste0("#nav-", tab_id),
             where = "afterBegin",
@@ -57,190 +56,75 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
                 column(12, class = "d-flex justify-content-between align-items-center mb-2",
                   downloadButton(outputId = paste0("download_", tab_id, "_", tokenUI), label = "📥 Download CSV", class = "btn btn-sm btn-success")
                 )
-              ),
-              tags$div(id = paste0("plots_", tab_id))
+              )
             )
           )
 
-          # Plots depending on table type
-          if (grepl("intermediate_report", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
-            insertUI(
-              selector = paste0("#", paste0("plots_", tab_id)),
-              where = "beforeEnd",
-              ui = fluidRow(
-                column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_impact_", tab_id, "_", tokenUI), height = "550px")),
-                column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_waterfall_", tab_id, "_", tokenUI), height = "550px")),
-                column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_pie_", tab_id, "_", tokenUI), height = "550px"))
-              )
-            )
-
-            output[[paste0("plot_impact_", tab_id, "_", tokenUI)]] <- renderPlotly({
-              req(df$lrm_classification, df$Ressources_before_haircut)
-              plot_ly(df,
-                x = ~lrm_classification,
-                y = ~Ressources_before_haircut,
-                type = "bar",
-                text = ~scales::percent(Ressources_before_haircut, accuracy = 0.1),
-                hoverinfo = "text+y",
-                color = ~lrm_classification
-              ) %>%
-              layout(title = "Resources before haircut", xaxis = list(title = ""), yaxis = list(title = "Impact (%)")) %>%
-              layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
-            })
-
-            output[[paste0("plot_waterfall_", tab_id, "_", tokenUI)]] <- renderPlotly({
-              req(df$lrm_classification, df$Financial_Impact)
-              df_agg <- df %>%
-                dplyr::group_by(lrm_classification) %>%
-                dplyr::summarise(Financial_Impact = sum(-Financial_Impact, na.rm = TRUE)) %>%
-                dplyr::arrange(desc(abs(Financial_Impact))) %>%
-                dplyr::mutate(
-                  prefix = paste0(LETTERS[seq_along(lrm_classification)], ". "),
-                  label = paste0(prefix, lrm_classification),
-                  measure = "relative",
-                  text = format(Financial_Impact, big.mark = " ")
-                )
-              total <- data.frame(
-                label = "Total",
-                Financial_Impact = sum(df_agg$Financial_Impact, na.rm = TRUE),
-                measure = "total",
-                text = format(sum(df_agg$Financial_Impact, na.rm = TRUE), big.mark = " ")
-              )
-              df_waterfall <- dplyr::bind_rows(df_agg[, c("label", "Financial_Impact", "measure", "text")], total)
-              plot_ly(
-                df_waterfall,
-                type = "waterfall",
-                x = ~label,
-                y = ~Financial_Impact,
-                text = ~text,
-                measure = ~measure,
-                textposition = "outside",
-                connector = list(line = list(color = "rgba(63, 63, 63, 0.7)"))
-              ) %>%
-                layout(
-                  title = "Financial Impact",
-                  xaxis = list(title = "", tickangle = -45),
-                  yaxis = list(title = "Financial Impact (€)"),
-                  paper_bgcolor = 'rgba(0,0,0,0)',
-                  plot_bgcolor = 'rgba(0,0,0,0)'
-                )
-            })
-
-            output[[paste0("plot_pie_", tab_id, "_", tokenUI)]] <- renderPlotly({
-              req(df$lrm_classification, df$Weighted_resources_after_encumbrance)
-              plot_ly(
-                df,
-                labels = ~lrm_classification,
-                values = ~abs(Weighted_resources_after_encumbrance),
-                type = "pie",
-                textinfo = "label+percent",
-                hoverinfo = "label+value+percent"
-              ) %>%
-                layout(title = "Weighted Resources After Encumbrance", showlegend = TRUE) %>%
-                layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
-            })
-          }
-
-          if (grepl("stress_impact_report", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
-            insertUI(
-              selector = paste0("#", paste0("plots_", tab_id)),
-              where = "beforeEnd",
-              ui = fluidRow(
-                column(12, class = "col-12 col-md-4 offset-md-4", plotlyOutput(outputId = paste0("plot_pie_", tab_id, "_", tokenUI), height = "550px"))
-              )
-            )
-            output[[paste0("plot_pie_", tab_id, "_", tokenUI)]] <- renderPlotly({
-              req(df$risk_module, df$external_figures)
-              plot_ly(
-                df,
-                labels = ~risk_module,
-                values = ~abs(external_figures),
-                type = "pie",
-                textinfo = "label+percent",
-                hoverinfo = "label+value+percent"
-              ) %>%
-                layout(title = "External Figures", showlegend = TRUE) %>%
-                layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
-            })
-          }
-
-          if (grepl("liquidity_report", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
-            df_vals <- df %>%
-              dplyr::filter(get(names(df)[1]) %in% c("Excess liquidity", "Stress impact", "Available weighted resources")) %>%
-              tidyr::pivot_wider(names_from = names(df)[1], values_from = `New methodology`) %>%
-              dplyr::mutate(
-                stress = `Stress impact`,
-                excess = `Excess liquidity`
-              )
-            insertUI(
-              selector = paste0("#", paste0("plots_", tab_id)),
-              where = "beforeEnd",
-              ui = fluidRow(
-                column(12, plotlyOutput(outputId = paste0("plot_liquidity_", tab_id, "_", tokenUI), height = "200px"))
-              )
-            )
-            output[[paste0("plot_liquidity_", tab_id, "_", tokenUI)]] <- renderPlotly({
-              plot_ly(type = "bar", orientation = "h") %>%
-                add_trace(
-                  x = ~df_vals$`Stress impact`,
-                  y = "Available weighted resources",
-                  name = "Stress impact",
-                  marker = list(color = 'rgba(255, 99, 71, 0.8)'),
-                  text = ~format(df_vals$`Stress impact`, big.mark = " "),
-                  hoverinfo = "text+x"
-                ) %>%
-                add_trace(
-                  x = ~df_vals$`Excess liquidity`,
-                  y = "Available weighted resources",
-                  name = "Excess liquidity",
-                  marker = list(color = 'rgba(0, 200, 0, 0.7)'),
-                  text = ~format(df_vals$`Excess liquidity`, big.mark = " "),
-                  hoverinfo = "text+x"
-                ) %>%
-                layout(
-                  barmode = "stack",
-                  title = "",
-                  xaxis = list(title = "Amount (mEUR)", tickformat = ",.0f"),
-                  yaxis = list(title = ""),
-                  paper_bgcolor = 'rgba(0,0,0,0)',
-                  plot_bgcolor = 'rgba(0,0,0,0)',
-                  showlegend = TRUE
-                )
-            })
-          }
-
-          # Table (target id inserted by Generate_dashboard_tabs_table)
+          # Create DataTable for each report
           output[[paste0("td_dashboard_", tab_id)]] <- renderDT({
             num_cols <- names(df)[sapply(df, is.numeric)]
             df_clean <- df
-            show_total <- grepl("intermediate_report|weighted|stress_impact", gsub_underscore_dash(" ", "_", tolower(table_name)))
+            
+            # Determine if we need to show totals based on report type
+            show_total <- grepl("calcule|finale", gsub_underscore_dash(" ", "_", tolower(table_name)))
+            
             if (show_total && length(num_cols) > 0) {
               total_row <- df_clean[, lapply(.SD, function(x) if (is.numeric(x)) sum(x, na.rm = TRUE) else NA), .SDcols = num_cols]
               total_row[, setdiff(names(df_clean), num_cols) := lapply(setdiff(names(df_clean), num_cols), function(x) "Total")]
               df_clean <- rbind(df_clean, total_row, fill = TRUE)
             }
+            
+            # Create DataTable with appropriate options
             dt <- datatable(
               df_clean,
               rownames = FALSE,
-              options = list(paging = FALSE, dom = 'tip', autoWidth = TRUE, ordering = TRUE),
-              filter = "top"
+              options = list(
+                paging = TRUE,
+                pageLength = 25,
+                dom = 'Bfrtip',
+                autoWidth = TRUE,
+                ordering = TRUE,
+                scrollX = TRUE,
+                buttons = c('copy', 'csv', 'excel', 'pdf', 'print')
+              ),
+              filter = "top",
+              extensions = 'Buttons'
             )
+            
+            # Format numeric columns
             for (col in num_cols) {
-              if (col %in% c("lrm_weight", "Impact Weighted Resource")) {
+              if (grepl("rate|percentage|%|pct", tolower(col))) {
+                # Format as percentage
                 dt <- DT::formatPercentage(dt, columns = col, digits = 2)
+              } else if (grepl("fee|amount|value|cost|prix|montant", tolower(col))) {
+                # Format as currency
+                dt <- DT::formatCurrency(dt, columns = col, currency = "€", digits = 2, interval = 3, mark = " ")
               } else {
-                dt <- DT::formatCurrency(dt, columns = col, currency = "", digits = 0, interval = 3, mark = " ")
+                # Format as number with separators
+                dt <- DT::formatRound(dt, columns = col, digits = 2, mark = " ")
               }
             }
+            
+            # Style total row if present
             if (show_total) {
-              dt <- DT::formatStyle(dt, columns = 0, target = "row", rows = nrow(df_clean), fontWeight = "bold", backgroundColor = "#f9f9f9")
+              dt <- DT::formatStyle(dt, columns = 0, target = "row", rows = nrow(df_clean), fontWeight = "bold", backgroundColor = "#f0f8ff")
             }
+            
+            # Custom styling based on report type
+            if (grepl("calcule", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+              dt <- DT::formatStyle(dt, columns = names(df_clean), backgroundColor = "#fff8dc")
+            } else if (grepl("kpi_axa_im", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+              dt <- DT::formatStyle(dt, columns = names(df_clean), backgroundColor = "#f0fff0")
+            } else if (grepl("finale", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+              dt <- DT::formatStyle(dt, columns = names(df_clean), backgroundColor = "#fff0f5")
+            }
+            
             dt
           })
 
-          # Downloads
+          # Downloads for individual tabs
           output[[paste0("download_", tab_id, "_", tokenUI)]] <- downloadHandler(
-            filename = function() paste0(gsub("[\\/:*?\"<>|]", "_", table_name), ".csv"),
+            filename = function() paste0("AMFees_", gsub("[\\/:*?\"<>|]", "_", table_name), "_", Sys.Date(), ".csv"),
             content = function(file) {
               fwrite(df, file, row.names = FALSE, sep = user_separator(), quote = TRUE)
             }
@@ -248,20 +132,38 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
         })
       }
 
-      # Download all to Excel
+      # Download all reports to Excel
       output[[ns(paste0("download_all_data_excel_", tokenUI))]] <- downloadHandler(
-        filename = function() paste0("RiskFrameworkLiquidity_Report_", Sys.Date(), ".xlsx"),
+        filename = function() paste0("AMFees_AllReports_", Sys.Date(), ".xlsx"),
         content = function(file) {
-          openxlsx::write.xlsx(data_list, file)
+          # Create named list for Excel sheets
+          sheet_names <- c(
+            "Rapport_Calcule" = "Rapport de calcule",
+            "KPI_AXA_IM" = "Rapport KPI AXA IM", 
+            "Rapport_Finale" = "Rapport finale"
+          )
+          
+          # Match actual data names with intended sheet names
+          final_list <- list()
+          for(i in seq_along(data_list)) {
+            sheet_name <- names(sheet_names)[i]
+            if(i <= length(sheet_names) && !is.null(sheet_name)) {
+              final_list[[sheet_name]] <- data_list[[i]]
+            } else {
+              final_list[[names(data_list)[i]]] <- data_list[[i]]
+            }
+          }
+          
+          openxlsx::write.xlsx(final_list, file)
         }
       )
 
       hidePageSpinner()
       runjs("$('a[href=\"#historyAnalysis\"]').click();")
     }, error = function(e) {
-      print(e)
+      print(paste("Error in createAMFeesUI:", e$message))
       hidePageSpinner()
-      runjs("toastr.error('Error.. please retry again','',toastr.options.timeOut='500');")
+      runjs("toastr.error('Erreur lors du chargement des rapports AM Fees. Veuillez réessayer.','',toastr.options.timeOut='3000');")
     })
   })
 }

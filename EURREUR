@@ -1,191 +1,267 @@
-# Utile pour `%||%`
-`%||%` <- function(x, y) if (!is.null(x)) x else y
+createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
+  ns <- NS(id)
 
-# Générer un widget shiny selon le type
-generate_widget <- function(type, id, params) {
-  if (!isTRUE(params$visible)) return(NULL)
-  label <- params$label %||% id
-  
-  switch(
-    tolower(type),
-    "datepicker" = {
-      # Préparer la valeur initiale pour le highlighting
-      initial_value <- NULL
-      if (!is.null(params$value)) {
-        initial_value <- as.Date(params$value)
-      }
-      
-      # Préparer les dates à highlight en incluant la valeur initiale
-      highlighted_dates <- params$highlightedDates %||% NULL
-      if (!is.null(initial_value)) {
-        if (is.null(highlighted_dates)) {
-          highlighted_dates <- initial_value
-        } else {
-          highlighted_dates <- c(highlighted_dates, initial_value)
-        }
-      }
-      
-      div(
-        shinyWidgets::airDatepickerInput(
-          inputId = paste0(id, "_front"),
-          label = HTML(paste0('<span style = "font-size : larger";> <strong><i class="fa-solid fa-calendar-days"></i> ', label , '</strong></span>')),
-          minDate = params$minDate %||% NULL,
-          maxDate = params$maxDate %||% NULL,
-          value = initial_value,
-          view = params$view %||% "days",
-          minView = params$view %||% "days",
-          highlightedDates = highlighted_dates,
-          disabledDates = as.Date(params$disabledDates) %||% NULL,
-          clearButton = params$clearButton %||% TRUE,
-          todayButton = params$todayButton %||% TRUE,
-          autoClose = params$autoClose %||% TRUE,
-          inline = params$inline %||% TRUE
-        )
-      )
-    },
-    "checkbox" = {
-      checked_val <- if (!is.null(params$value)) as.logical(params$value) else params$checked %||% FALSE
-      customCheckBox(
-        inputId = id,
-        label = label,
-        checked = checked_val,
-        disabled = params$disabled %||% FALSE
-      )
-    },
-    "numeric" = {
-      # Nouveau widget pour les nombres décimaux
-      value_val <- if (!is.null(params$value)) as.numeric(params$value) else params$default %||% 0
-      
-      # Si vous utilisez shinyWidgets::numericInputIcon pour un style plus moderne
-      if (params$useIcon %||% FALSE) {
-        shinyWidgets::numericInputIcon(
-          inputId = id,
-          label = label,
-          value = value_val,
-          min = params$min %||% NA,
-          max = params$max %||% NA,
-          step = params$step %||% 0.01,  # Par défaut, précision de 2 décimales
-          icon = list(params$icon %||% NULL),
-          width = params$width %||% NULL
-        )
-      } else {
-        # Version standard Shiny
-        numericInput(
-          inputId = id,
-          label = label,
-          value = value_val,
-          min = params$min %||% NA,
-          max = params$max %||% NA,
-          step = params$step %||% 0.01,  # Par défaut, précision de 2 décimales
-          width = params$width %||% NULL
-        )
-      }
-    },
-    "selectinput" = {
-      
-      if(tolower(params$typeOfOptions) == "foundationlist"){
-        options <- loadFoundationVariable(params$options)
-      }else if(tolower(params$typeOfOptions) == "variable"){
-        options <- get(params$options)
-      }else if(tolower(params$typeOfOptions) %in% c("dunescopeselector", "entityselector")){
-        options <-isolate(user_entities())
-      }else{
-        options <- unlist(params$options)
-      }
-      # valeur pré-remplie éventuelle
-      selected_val <- params$value %||% NULL
-        # Vérification si selected_val est vide ou multiple
-      if (is_value_empty(selected_val)) {
-        selected_val <- NULL
-      }
-      customSelectWithValues(inputId = id, label = label, icon = params$icon %||% "", message = params$message %||% "Please, make a choice", options = options, disabled = params$disabled, multiple = params$multiple %||% FALSE, selected = selected_val)
-    },
-    "div" = {
-      div(id = id)
-    },
-
-    # fallback
-    div(paste("Unsupported widget type:", type))
-  )
-}
-
-# Générer un widget shiny selon le type (JavaScript)
-generate_widget_js <- function(type, id, params) {
-  if (!isTRUE(params$visible)) return(NULL)
-  switch(
-    tolower(type),
-    "datepicker" = {
-      paste(
-        JS_datePicker(id = id, type = params$typeOfDate),
-        paste0(sapply(params$monthsDisabled-1,js_disable_months_detail, id = paste0(id, "_front")), collapse="\n"),
-        js_disable_months_next(id = id, monthsDisabled = params$monthsDisabled-1),
-        js_disable_months_prev(id = id, monthsDisabled = params$monthsDisabled-1), sep = "\n")
-    },
-    "numeric" = {
-      # Ajout optionnel de validation JavaScript pour le numeric input
-      if (params$validateOnInput %||% FALSE) {
-        paste0(
-          "// Validation pour ", id, "\n",
-          "$('#", id, "').on('input', function() {\n",
-          "  var val = $(this).val();\n",
-          "  if (val !== '' && !$.isNumeric(val)) {\n",
-          "    $(this).addClass('is-invalid');\n",
-          "  } else {\n",
-          "    $(this).removeClass('is-invalid');\n",
-          "  }\n",
-          "});"
-        )
-      } else {
-        ""
-      }
-    },
-    ""
-  )
-}
-
-generate_widget_idsTypesParams <- function(type, id, params) {
-  if (!isTRUE(params$visible)) return(NULL)
-  list(id = id, type = type, params = params)
-}
-
-generateRowTitle <- function(title) {
-  div(class = "col-12",
-    tags$p(class = "text-center", style = "font-weight: bold; font-size: xx-large;", title)
-  )
-}
-
-parse_specific_widgets_from_json <- function(json_path, app_name) {
-
-  specificSectionJson <- fromJSON(json_path, simplifyDataFrame = FALSE)
-  specificSectionBool <- length(Filter(function(x) tolower(gsub_underscore_dash(" ", "_", x$app)) == tolower(gsub_underscore_dash(" ", "_", app_name)), specificSectionJson)) > 0
-  if(specificSectionBool){
-    json_data <- fromJSON(json_path, simplifyDataFrame = FALSE)
-    app_data <- Filter(function(x) tolower(gsub_underscore_dash(" ", "_", x$app)) == tolower(gsub_underscore_dash(" ", "_", app_name)), json_data)[[1]]
-    # Ordonner les rows
-    ordered_rows <- app_data$rows[order(sapply(app_data$rows, `[[`, "rowOrder"))]
-    
-    idsTypesParams <- character()
-
-    for (row in ordered_rows) {
-      row_columns <- list()
-      # Ordonner les colonnes
-      ordered_columns <- row$columns[order(sapply(row$columns, `[[`, "columnOrder"))]
-      for (col in ordered_columns) {
-        param_map <- setNames(col$parameters, sapply(col$parameters, `[[`, "id"))
-        idsTypesParams <- c(idsTypesParams,
-          lapply(col$content, function(el) {
-            generate_widget_idsTypesParams(el$type, el$id, param_map[[el$id]])
-          }))
-        idsTypesParams <- Filter(Negate(is.null), idsTypesParams)
-      }
+  observe({
+    req(reactiveReportObject$app)
+    appSelected <- reactiveReportObject$app
+    if (!tolower(gsub_underscore_dash(" ", "_", appSelected)) %in% c("rf_liquidity")) {
+      return()
     }
 
-    ids <- sapply(idsTypesParams, function(el) el$id)
-    types <- sapply(idsTypesParams, function(el) el$type)
-    params <- lapply(idsTypesParams, function(el) el$params)
-    return(list(ids = ids, types = types, params = params))    
-  }else{
-    return(list(ids = "", types = "", params = ""))
-  }
+    showPageSpinner()
+    tryCatch({
+      # Cleanup previous content
+      removeUI(selector = paste0("#", id, "ContentAnalysis"), immediate = TRUE)
 
+      data_list <- reactiveReportObject$reportData
+      if (is.null(data_list)) {
+        hidePageSpinner()
+        return()
+      }
+      if (!is.list(data_list)) {
+        data_list <- list(data_list)
+        names(data_list) <- c("Report")
+      }
+
+
+      # Build tabs
+      tabs <- Map(function(i) list(id = paste0(id, "-", i, "_", tokenUI), name = names(data_list)[i]), seq_len(length(data_list)))
+
+      ui_root <- tags$div(
+        id = paste0(id, "ContentAnalysis"),
+        class = "row",
+        tags$div(class = "col-12 mb-2",
+          downloadButton(ns(paste0("download_all_data_excel_", tokenUI)), "📦 Download all in Excel", class = "btn btn-primary my-2")
+        ),
+        tags$div(class = "col-12", Generate_dashboard_tabs_table(tabs, typseOfTable = rep("DT", length(tabs))))
+      )
+
+      insertUI(selector = paste0("#", id, "Content"), ui = ui_root, immediate = TRUE)
+
+      # Populate each tab content
+      for (i in seq_along(data_list)) {
+        local({
+          idx <- i
+          df <- data_list[[idx]]
+          table_name <- names(data_list)[idx]
+
+          tab_id <- paste0(id, "-", idx, "_", tokenUI)
+
+          # Add per-tab controls (download + plots container) above the DT
+          insertUI(
+            selector = paste0("#nav-", tab_id),
+            where = "afterBegin",
+            ui = tags$div(
+              class = "my-3",
+              fluidRow(
+                column(12, class = "d-flex justify-content-between align-items-center mb-2",
+                  downloadButton(outputId = paste0("download_", tab_id, "_", tokenUI), label = "📥 Download CSV", class = "btn btn-sm btn-success")
+                )
+              ),
+              tags$div(id = paste0("plots_", tab_id))
+            )
+          )
+
+          # Plots depending on table type
+          if (grepl("intermediate_report", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+            insertUI(
+              selector = paste0("#", paste0("plots_", tab_id)),
+              where = "beforeEnd",
+              ui = fluidRow(
+                column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_impact_", tab_id, "_", tokenUI), height = "550px")),
+                column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_waterfall_", tab_id, "_", tokenUI), height = "550px")),
+                column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_pie_", tab_id, "_", tokenUI), height = "550px"))
+              )
+            )
+
+            output[[paste0("plot_impact_", tab_id, "_", tokenUI)]] <- renderPlotly({
+              req(df$lrm_classification, df$Ressources_before_haircut)
+              plot_ly(df,
+                x = ~lrm_classification,
+                y = ~Ressources_before_haircut,
+                type = "bar",
+                text = ~scales::percent(Ressources_before_haircut, accuracy = 0.1),
+                hoverinfo = "text+y",
+                color = ~lrm_classification
+              ) %>%
+              layout(title = "Resources before haircut", xaxis = list(title = ""), yaxis = list(title = "Impact (%)")) %>%
+              layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
+            })
+
+            output[[paste0("plot_waterfall_", tab_id, "_", tokenUI)]] <- renderPlotly({
+              req(df$lrm_classification, df$Financial_Impact)
+              df_agg <- df %>%
+                dplyr::group_by(lrm_classification) %>%
+                dplyr::summarise(Financial_Impact = sum(-Financial_Impact, na.rm = TRUE)) %>%
+                dplyr::arrange(desc(abs(Financial_Impact))) %>%
+                dplyr::mutate(
+                  prefix = paste0(LETTERS[seq_along(lrm_classification)], ". "),
+                  label = paste0(prefix, lrm_classification),
+                  measure = "relative",
+                  text = format(Financial_Impact, big.mark = " ")
+                )
+              total <- data.frame(
+                label = "Total",
+                Financial_Impact = sum(df_agg$Financial_Impact, na.rm = TRUE),
+                measure = "total",
+                text = format(sum(df_agg$Financial_Impact, na.rm = TRUE), big.mark = " ")
+              )
+              df_waterfall <- dplyr::bind_rows(df_agg[, c("label", "Financial_Impact", "measure", "text")], total)
+              plot_ly(
+                df_waterfall,
+                type = "waterfall",
+                x = ~label,
+                y = ~Financial_Impact,
+                text = ~text,
+                measure = ~measure,
+                textposition = "outside",
+                connector = list(line = list(color = "rgba(63, 63, 63, 0.7)"))
+              ) %>%
+                layout(
+                  title = "Financial Impact",
+                  xaxis = list(title = "", tickangle = -45),
+                  yaxis = list(title = "Financial Impact (€)"),
+                  paper_bgcolor = 'rgba(0,0,0,0)',
+                  plot_bgcolor = 'rgba(0,0,0,0)'
+                )
+            })
+
+            output[[paste0("plot_pie_", tab_id, "_", tokenUI)]] <- renderPlotly({
+              req(df$lrm_classification, df$Weighted_resources_after_encumbrance)
+              plot_ly(
+                df,
+                labels = ~lrm_classification,
+                values = ~abs(Weighted_resources_after_encumbrance),
+                type = "pie",
+                textinfo = "label+percent",
+                hoverinfo = "label+value+percent"
+              ) %>%
+                layout(title = "Weighted Resources After Encumbrance", showlegend = TRUE) %>%
+                layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
+            })
+          }
+
+          if (grepl("stress_impact_report", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+            insertUI(
+              selector = paste0("#", paste0("plots_", tab_id)),
+              where = "beforeEnd",
+              ui = fluidRow(
+                column(12, class = "col-12 col-md-4 offset-md-4", plotlyOutput(outputId = paste0("plot_pie_", tab_id, "_", tokenUI), height = "550px"))
+              )
+            )
+            output[[paste0("plot_pie_", tab_id, "_", tokenUI)]] <- renderPlotly({
+              req(df$risk_module, df$external_figures)
+              plot_ly(
+                df,
+                labels = ~risk_module,
+                values = ~abs(external_figures),
+                type = "pie",
+                textinfo = "label+percent",
+                hoverinfo = "label+value+percent"
+              ) %>%
+                layout(title = "External Figures", showlegend = TRUE) %>%
+                layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
+            })
+          }
+
+          if (grepl("liquidity_report", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+            df_vals <- df %>%
+              dplyr::filter(get(names(df)[1]) %in% c("Excess liquidity", "Stress impact", "Available weighted resources")) %>%
+              tidyr::pivot_wider(names_from = names(df)[1], values_from = `New methodology`) %>%
+              dplyr::mutate(
+                stress = `Stress impact`,
+                excess = `Excess liquidity`
+              )
+            insertUI(
+              selector = paste0("#", paste0("plots_", tab_id)),
+              where = "beforeEnd",
+              ui = fluidRow(
+                column(12, plotlyOutput(outputId = paste0("plot_liquidity_", tab_id, "_", tokenUI), height = "200px"))
+              )
+            )
+            output[[paste0("plot_liquidity_", tab_id, "_", tokenUI)]] <- renderPlotly({
+              plot_ly(type = "bar", orientation = "h") %>%
+                add_trace(
+                  x = ~df_vals$`Stress impact`,
+                  y = "Available weighted resources",
+                  name = "Stress impact",
+                  marker = list(color = 'rgba(255, 99, 71, 0.8)'),
+                  text = ~format(df_vals$`Stress impact`, big.mark = " "),
+                  hoverinfo = "text+x"
+                ) %>%
+                add_trace(
+                  x = ~df_vals$`Excess liquidity`,
+                  y = "Available weighted resources",
+                  name = "Excess liquidity",
+                  marker = list(color = 'rgba(0, 200, 0, 0.7)'),
+                  text = ~format(df_vals$`Excess liquidity`, big.mark = " "),
+                  hoverinfo = "text+x"
+                ) %>%
+                layout(
+                  barmode = "stack",
+                  title = "",
+                  xaxis = list(title = "Amount (mEUR)", tickformat = ",.0f"),
+                  yaxis = list(title = ""),
+                  paper_bgcolor = 'rgba(0,0,0,0)',
+                  plot_bgcolor = 'rgba(0,0,0,0)',
+                  showlegend = TRUE
+                )
+            })
+          }
+
+          # Table (target id inserted by Generate_dashboard_tabs_table)
+          output[[paste0("td_dashboard_", tab_id)]] <- renderDT({
+            num_cols <- names(df)[sapply(df, is.numeric)]
+            df_clean <- df
+            show_total <- grepl("intermediate_report|weighted|stress_impact", gsub_underscore_dash(" ", "_", tolower(table_name)))
+            if (show_total && length(num_cols) > 0) {
+              total_row <- df_clean[, lapply(.SD, function(x) if (is.numeric(x)) sum(x, na.rm = TRUE) else NA), .SDcols = num_cols]
+              total_row[, setdiff(names(df_clean), num_cols) := lapply(setdiff(names(df_clean), num_cols), function(x) "Total")]
+              df_clean <- rbind(df_clean, total_row, fill = TRUE)
+            }
+            dt <- datatable(
+              df_clean,
+              rownames = FALSE,
+              options = list(paging = FALSE, dom = 'tip', autoWidth = TRUE, ordering = TRUE),
+              filter = "top"
+            )
+            for (col in num_cols) {
+              if (col %in% c("lrm_weight", "Impact Weighted Resource")) {
+                dt <- DT::formatPercentage(dt, columns = col, digits = 2)
+              } else {
+                dt <- DT::formatCurrency(dt, columns = col, currency = "", digits = 0, interval = 3, mark = " ")
+              }
+            }
+            if (show_total) {
+              dt <- DT::formatStyle(dt, columns = 0, target = "row", rows = nrow(df_clean), fontWeight = "bold", backgroundColor = "#f9f9f9")
+            }
+            dt
+          })
+
+          # Downloads
+          output[[paste0("download_", tab_id, "_", tokenUI)]] <- downloadHandler(
+            filename = function() paste0(gsub("[\\/:*?\"<>|]", "_", table_name), ".csv"),
+            content = function(file) {
+              fwrite(df, file, row.names = FALSE, sep = user_separator(), quote = TRUE)
+            }
+          )
+        })
+      }
+
+      # Download all to Excel
+      output[[ns(paste0("download_all_data_excel_", tokenUI))]] <- downloadHandler(
+        filename = function() paste0("RiskFrameworkLiquidity_Report_", Sys.Date(), ".xlsx"),
+        content = function(file) {
+          openxlsx::write.xlsx(data_list, file)
+        }
+      )
+
+      hidePageSpinner()
+      runjs("$('a[href=\"#historyAnalysis\"]').click();")
+    }, error = function(e) {
+      print(e)
+      hidePageSpinner()
+      runjs("toastr.error('Error.. please retry again','',toastr.options.timeOut='500');")
+    })
+  })
 }

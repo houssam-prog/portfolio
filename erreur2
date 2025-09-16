@@ -64,7 +64,7 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
           output[[paste0("td_dashboard_", tab_id)]] <- renderDT({
             num_cols <- names(df)[sapply(df, is.numeric)]
             df_clean <- df
-            show_total <- grepl("am_fees_report|calcul_report|kpi_axa_im_report", gsub_underscore_dash(" ", "_", tolower(table_name)))
+            show_total <- grepl("calcul_report|kpi_axa_im_report", gsub_underscore_dash(" ", "_", tolower(table_name)))
             if (show_total && length(num_cols) > 0) {
               total_row <- df_clean[, lapply(.SD, function(x) if (is.numeric(x)) sum(x, na.rm = TRUE) else NA), .SDcols = num_cols]
               total_row[, setdiff(names(df_clean), num_cols) := lapply(setdiff(names(df_clean), num_cols), function(x) "Total")]
@@ -77,11 +77,7 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
               filter = "top"
             )
             for (col in num_cols) {
-              if (col %in% c("rate", "percentage") || grepl("rate|percentage|%|pct", tolower(col))) {
-                dt <- DT::formatPercentage(dt, columns = col, digits = 2)
-              } else {
-                dt <- DT::formatCurrency(dt, columns = col, currency = "", digits = 0, interval = 3, mark = " ")
-              }
+              dt <- DT::formatCurrency(dt, columns = col, currency = "", digits = 0, interval = 3, mark = " ")
             }
             if (show_total) {
               dt <- DT::formatStyle(dt, columns = 0, target = "row", rows = nrow(df_clean), fontWeight = "bold", backgroundColor = "#f9f9f9")

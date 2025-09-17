@@ -10,7 +10,6 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
 
     showPageSpinner()
     tryCatch({
-      # Cleanup previous content
       removeUI(selector = paste0("#", id, "ContentAnalysis"), immediate = TRUE)
 
       data_list <- reactiveReportObject$reportData
@@ -23,7 +22,6 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
         names(data_list) <- c("Report")
       }
 
-      # Build tabs
       tabs <- Map(function(i) list(id = paste0(id, "-", i, "_", tokenUI), name = names(data_list)[i]), seq_len(length(data_list)))
 
       ui_root <- tags$div(
@@ -37,16 +35,13 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
 
       insertUI(selector = paste0("#", id, "Content"), ui = ui_root, immediate = TRUE)
 
-      # Populate each tab content
       for (i in seq_along(data_list)) {
         local({
           idx <- i
           df <- data_list[[idx]]
           table_name <- names(data_list)[idx]
-
           tab_id <- paste0(id, "-", idx, "_", tokenUI)
 
-          # Add per-tab controls (download button) above the DT
           insertUI(
             selector = paste0("#nav-", tab_id),
             where = "afterBegin",
@@ -55,37 +50,29 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
               fluidRow(
                 column(12, class = "d-flex justify-content-between align-items-center mb-2",
                   downloadButton(outputId = paste0("download_", tab_id, "_", tokenUI), label = "📥 Download CSV", class = "btn btn-sm btn-success")
+                ),
+                column(12,
+                  rhandsontable::rHandsontableOutput(outputId = paste0("td_dashboard_", tab_id))
                 )
               )
             )
           )
 
-          # Table (target id inserted by Generate_dashboard_tabs_table)
-          output[[paste0("td_dashboard_", tab_id)]] <- renderDT({
+          output[[paste0("td_dashboard_", tab_id)]] <- rhandsontable::renderRHandsontable({
             num_cols <- names(df)[sapply(df, is.numeric)]
             df_clean <- df
             show_total <- grepl("calcul_report|kpi_axa_im_report", gsub_underscore_dash(" ", "_", tolower(table_name)))
+
             if (show_total && length(num_cols) > 0) {
               total_row <- df_clean[, lapply(.SD, function(x) if (is.numeric(x)) sum(x, na.rm = TRUE) else NA), .SDcols = num_cols]
               total_row[, setdiff(names(df_clean), num_cols) := lapply(setdiff(names(df_clean), num_cols), function(x) "Total")]
               df_clean <- rbind(df_clean, total_row, fill = TRUE)
             }
-            dt <- datatable(
-              df_clean,
-              rownames = FALSE,
-              options = list(paging = FALSE, dom = 'tip', autoWidth = TRUE, ordering = TRUE),
-              filter = "top"
-            )
-            for (col in num_cols) {
-              dt <- DT::formatCurrency(dt, columns = col, currency = "", digits = 0, interval = 3, mark = " ")
-            }
-            if (show_total) {
-              dt <- DT::formatStyle(dt, columns = 0, target = "row", rows = nrow(df_clean), fontWeight = "bold", backgroundColor = "#f9f9f9")
-            }
-            dt
+
+            rhandsontable::rhandsontable(df_clean, rowHeaders = NULL, useTypes = TRUE) %>%
+              rhandsontable::hot_col(col = num_cols, format = "0,0")  # format numérique
           })
 
-          # Downloads
           output[[paste0("download_", tab_id, "_", tokenUI)]] <- downloadHandler(
             filename = function() paste0(gsub("[\\/:*?\"<>|]", "_", table_name), ".csv"),
             content = function(file) {
@@ -95,7 +82,6 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
         })
       }
 
-      # Download all to Excel
       output[[ns(paste0("download_all_data_excel_", tokenUI))]] <- downloadHandler(
         filename = function() paste0("AMFees_Report_", Sys.Date(), ".xlsx"),
         content = function(file) {

@@ -74,24 +74,32 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
             show_total <- grepl("calcul_report|kpi_axa_im_report", gsub_underscore_dash(" ", "_", tolower(table_name)))
 
             if (show_total && length(num_cols) > 0) {
-              # Créer une ligne vide
+              # Initialiser ligne vide
               total_row <- as.list(rep(NA, length(df_clean)))
               names(total_row) <- names(df_clean)
 
-              # Remplir les colonnes numériques par les totaux
+              # Ajouter totaux pour les colonnes numériques
               for (col in num_cols) {
                 total_row[[col]] <- sum(df_clean[[col]], na.rm = TRUE)
               }
 
-              # Mettre "Total" dans la première colonne non numérique seulement
-              first_text_col <- setdiff(names(df_clean), num_cols)[1]
-              total_row[[first_text_col]] <- "Total"
+              # Première colonne non numérique = "Total", les autres = ""
+              text_cols <- setdiff(names(df_clean), num_cols)
+              if (length(text_cols) > 0) {
+                total_row[[text_cols[1]]] <- "Total"
+                if (length(text_cols) > 1) {
+                  for (col in text_cols[-1]) {
+                    total_row[[col]] <- ""
+                  }
+                }
+              }
 
-              # Convertir en data.table puis ajouter
+              # Ajouter ligne total
               total_row_dt <- data.table::as.data.table(total_row)
               df_clean <- rbind(df_clean, total_row_dt, fill = TRUE)
             }
 
+            # Affichage avec rhandsontable
             table_output <- rhandsontable::rhandsontable(
               df_clean,
               rowHeaders = NULL,
@@ -100,6 +108,7 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
             ) %>%
               rhandsontable::hot_col(col = num_cols, format = "0,0")
 
+            # Mettre la ligne "Total" en gras
             if (show_total) {
               total_row_index <- nrow(df_clean)
               table_output <- table_output %>%

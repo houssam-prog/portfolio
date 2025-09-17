@@ -48,11 +48,21 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
             ui = tags$div(
               class = "my-3",
               fluidRow(
-                column(12, class = "d-flex justify-content-between align-items-center mb-2",
-                  downloadButton(outputId = paste0("download_", tab_id, "_", tokenUI), label = "📥 Download CSV", class = "btn btn-sm btn-success")
+                column(
+                  12,
+                  class = "d-flex justify-content-between align-items-center mb-2",
+                  downloadButton(
+                    outputId = paste0("download_", tab_id, "_", tokenUI),
+                    label = "📥 Download CSV",
+                    class = "btn btn-sm btn-success"
+                  )
                 ),
-                column(12,
-                  rhandsontable::rHandsontableOutput(outputId = paste0("td_dashboard_", tab_id))
+                column(
+                  12,
+                  rhandsontable::rHandsontableOutput(
+                    outputId = paste0("td_dashboard_", tab_id),
+                    width = "100%", height = "auto"
+                  )
                 )
               )
             )
@@ -69,8 +79,13 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
               df_clean <- rbind(df_clean, total_row, fill = TRUE)
             }
 
-            rhandsontable::rhandsontable(df_clean, rowHeaders = NULL, useTypes = TRUE) %>%
-              rhandsontable::hot_col(col = num_cols, format = "0,0")  # format numérique
+            rhandsontable::rhandsontable(
+              df_clean,
+              rowHeaders = NULL,
+              useTypes = TRUE,
+              width = "100%"
+            ) %>%
+              rhandsontable::hot_col(col = num_cols, format = "0,0")
           })
 
           output[[paste0("download_", tab_id, "_", tokenUI)]] <- downloadHandler(

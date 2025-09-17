@@ -74,18 +74,39 @@ createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
             show_total <- grepl("calcul_report|kpi_axa_im_report", gsub_underscore_dash(" ", "_", tolower(table_name)))
 
             if (show_total && length(num_cols) > 0) {
-              total_row <- df_clean[, lapply(.SD, function(x) if (is.numeric(x)) sum(x, na.rm = TRUE) else NA), .SDcols = num_cols]
-              total_row[, setdiff(names(df_clean), num_cols) := lapply(setdiff(names(df_clean), num_cols), function(x) "Total")]
-              df_clean <- rbind(df_clean, total_row, fill = TRUE)
+              # Créer une ligne vide
+              total_row <- as.list(rep(NA, length(df_clean)))
+              names(total_row) <- names(df_clean)
+
+              # Remplir les colonnes numériques par les totaux
+              for (col in num_cols) {
+                total_row[[col]] <- sum(df_clean[[col]], na.rm = TRUE)
+              }
+
+              # Mettre "Total" dans la première colonne non numérique seulement
+              first_text_col <- setdiff(names(df_clean), num_cols)[1]
+              total_row[[first_text_col]] <- "Total"
+
+              # Convertir en data.table puis ajouter
+              total_row_dt <- data.table::as.data.table(total_row)
+              df_clean <- rbind(df_clean, total_row_dt, fill = TRUE)
             }
 
-            rhandsontable::rhandsontable(
+            table_output <- rhandsontable::rhandsontable(
               df_clean,
               rowHeaders = NULL,
               useTypes = TRUE,
               width = "100%"
             ) %>%
               rhandsontable::hot_col(col = num_cols, format = "0,0")
+
+            if (show_total) {
+              total_row_index <- nrow(df_clean)
+              table_output <- table_output %>%
+                rhandsontable::hot_rows(rows = total_row_index, style = "font-weight: bold; background-color: #f9f9f9;")
+            }
+
+            table_output
           })
 
           output[[paste0("download_", tab_id, "_", tokenUI)]] <- downloadHandler(

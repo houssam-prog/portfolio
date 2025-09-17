@@ -293,3 +293,70 @@ specific_read <- function(df, appName){
   }
   df  # Return the processed data.table  
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+version finale:
+parseUploadedFiles <- function(lfiles, path_admin_param_data_dictionary, specific_read = NULL) {
+  if (is.null(lfiles)) return(NULL) # Return NULL if no files are uploaded
+  # Create a data table to store file information (name, path, extension)
+  file_info <- data.table(
+      name = lfiles$name,
+      datapath = lfiles$datapath,
+      file_ext = tolower(tools::file_ext(lfiles$name)),
+      stringsAsFactors = FALSE
+  )
+
+  # Process ZIP files in parallel
+  processed_files <- mclapply(1:nrow(lfiles), separate_zip_files, file_info = file_info, mc.cores = detectCores() - 1)
+  # Flatten the list of processed files and convert it to a data.table
+  df <- rbindlist(processed_files)
+  df$file_name <- df$name
+  df$size <- file_size_formated(df$size)
+  df$tmp_path <- df$datapath
+  df$originType <- "csv"
+  df <- df[,c("file_name", "size", "tmp_path", "originType")]
+  
+  # Handle Excel files (xlsx, xls) and convert them to CSV
+  xlsx_paths <- df$tmp_path[tools::file_ext(df$tmp_path) %in% c("xlsx", "xls")]
+  if (length(xlsx_paths) > 0) {
+      clean_tmp_files(path_tmpUploads) # Clean temporary files before processing
+      for (path_xl in xlsx_paths) {
+        if (length(excel_sheets(path_xl)) >= 1) { # If there are sheets in the Excel file
+            name_xl <- tools::file_path_sans_ext(df$file_name[df$tmp_path == path_xl])
+            df_csvs <- Sheets_to_csv(path_xl, name_xl, path_tmpUploads, path_admin_param_data_dictionary, quoteParam = TRUE) # Convert sheets to CSV
+            df_csvs$originType <- "xlsx"
+            df <- df[df$tmp_path != path_xl, ] # Remove the original Excel file from the data.table
+            df <- rbind(df, df_csvs) # Add the converted CSV files to the data.table
+        }
+      }
+  }
+
+  # AJOUT: Appel à specific_read AVANT le calcul d'input_type
+  if(!is.null(specific_read)){
+    df <- specific_read(df, isolate({user_repository()}))
+  }
+
+  # Extract input types and compatible versions from the file paths
+  file_and_versions <- lapply(df$tmp_path, Foundation_input_from_path, path_admin_param_data_dictionary = path_admin_param_data_dictionary, app = isolate({user_repository()}))
+  df$input_type <- unlist(lapply(file_and_versions, `[[`, "input_type"))
+  df$compatible_versions <- unlist(lapply(file_and_versions, `[[`, "compatible_versions"))
+  df <- df[,c("file_name", "size", "input_type", "compatible_versions", "tmp_path", "originType")]
+  
+  # If no files are left after processing, show an error message
+  if (nrow(df) == 0) {
+    return(NULL)
+  }
+  df  # Return the processed data.table  
+}

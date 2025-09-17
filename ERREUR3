@@ -1,0 +1,307 @@
+import os, shutil, datetime, pandas as pd
+from openpyxl import load_workbook
+from openpyxl.workbook.properties import CalcProperties
+from openpyxl.styles import Font, Border, PatternFill, Alignment, Protection
+import openpyxl, openpyxl.utils
+import concurrent.futures
+
+# Parameters with validation
+path_of_data = dbutils.widgets.get("path_of_data").strip()
+environment = (dbutils.widgets.get("environment") or "DEV").strip()
+user_email = dbutils.widgets.get("user_email").strip()
+period = (dbutils.widgets.get("period") or "1").strip()
+
+_to_bool = lambda name: dbutils.widgets.get(name).strip().lower() == "true"
+currency_goc = _to_bool("currency_goc")
+currency_rep = _to_bool("currency_rep")
+all_gocs = _to_bool("all_gocs")
+var_report = _to_bool("var_report")
+auto_generate_curr = _to_bool("auto_generate_curr")
+
+fx_rate = float(dbutils.widgets.get("fx_rate") or "1.0")
+run_date = dbutils.widgets.get("run_date").strip() or datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+template_dir = "Var Toolkit Template V3.xlsx"
+support_dir = "VAR_Report_Formulas.csv"
+output_path_run = os.path.join(path_of_data, "Outputs", run_date)
+os.makedirs(output_path_run, exist_ok=True)
+
+# Critical validations only
+if not path_of_data or not os.path.exists(path_of_data):
+    dbutils.notebook.exit(f"ERROR: inputs folder not found: {path_of_data}")
+if not os.path.exists(template_dir):
+    dbutils.notebook.exit(f"ERROR: Template file not found: {template_dir}")
+
+def clean_columns(df):
+    if df.empty:
+        return df
+    drop_cols = [col for col in ['UPDATE_DATE', 'Period', 'period', 'update_date'] if col in df.columns]
+    return df.drop(columns=drop_cols) if drop_cols else df
+
+def read_file_safe(file_info):
+    subfolder, filename, run_date = file_info
+    try:
+        filepath = os.path.join(path_of_data, subfolder, f"{filename}_{run_date}.csv")
+        if os.path.exists(filepath):
+            return filename, pd.read_csv(filepath, low_memory=False, engine='c')
+        else:
+            return filename, pd.DataFrame()
+    except Exception as e:
+        return filename, pd.DataFrame()
+
+def generate_curr(df_goc, fx_rate):
+    if df_goc.empty:
+        return pd.DataFrame()
+    
+    try:
+        df_curr = clean_columns(df_goc.copy())
+        numeric_cols = df_curr.select_dtypes(include=['number']).columns.tolist()
+        if numeric_cols:
+            df_curr[numeric_cols] = df_curr[numeric_cols].multiply(fx_rate)
+        return df_curr
+    except Exception:
+        return pd.DataFrame()
+
+def inject_data_efficient(ws, df, start_row=1, start_col=1):
+    if df.empty:
+        return
+    
+    try:
+        df_clean = clean_columns(df)
+        for j, col_name in enumerate(df_clean.columns):
+            ws.cell(row=start_row, column=start_col + j, value=str(col_name))
+        
+        chunk_size = 500
+        for chunk_start in range(0, len(df_clean), chunk_size):
+            chunk_end = min(chunk_start + chunk_size, len(df_clean))
+            chunk_data = df_clean.iloc[chunk_start:chunk_end]
+            
+            for i, (_, row) in enumerate(chunk_data.iterrows()):
+                row_num = start_row + 1 + chunk_start + i
+                for j, value in enumerate(row):
+                    if pd.notna(value):  
+                        ws.cell(row=row_num, column=start_col + j, value=value)
+    except Exception:
+        pass
+
+def safe_inject(wb, ws_name, df, row=1, col=1):
+    try:
+        if isinstance(df, pd.DataFrame) and not df.empty and ws_name in wb.sheetnames:
+            inject_data_efficient(wb[ws_name], df, row, col)
+    except Exception:
+        pass
+
+def copy_format_safe(source, target):
+    try:
+        target.font = Font(name=source.font.name, size=source.font.size, bold=source.font.bold,
+                          italic=source.font.italic, color=source.font.color)
+        target.border = Border(left=source.border.left, right=source.border.right, 
+                              top=source.border.top, bottom=source.border.bottom)
+        target.fill = PatternFill(fill_type=source.fill.fill_type, 
+                                 start_color=source.fill.start_color, end_color=source.fill.end_color)
+        target.number_format = source.number_format
+    except Exception:
+        pass
+
+def get_mapping_value(df_mapping, row_idx, possible_cols, default='N/A'):
+    try:
+        row_data = df_mapping.iloc[row_idx]
+        for col_name in possible_cols:
+            if col_name in df_mapping.columns:
+                value = row_data[col_name]
+                if pd.notna(value) and str(value).strip():
+                    return str(value)
+        return default
+    except Exception:
+        return default
+
+def create_var_report(wb, template, report_ref, curr_period, df_mapping, df_formulas):
+    try:
+        # Copy sheet
+        source_sheet = wb[template]
+        new_sheet = wb.copy_worksheet(source_sheet)
+        new_sheet.title = f'VAR_{report_ref}_{curr_period}'
+        new_sheet.cell(row=2, column=3).value = report_ref
+        
+        goc_count = len(df_mapping)
+        var_col_start = openpyxl.utils.column_index_from_string('F')
+        source_cell = wb[template].cell(row=5, column=var_col_start)
+        
+        batch_size = 100
+        for batch_start in range(0, goc_count, batch_size):
+            batch_end = min(batch_start + batch_size, goc_count)
+            
+            for i in range(batch_start, batch_end):
+                col_idx = var_col_start + i
+                
+                # Essential fields with smart fallbacks
+                new_sheet.cell(row=5, column=col_idx).value = get_mapping_value(df_mapping, i, ['iter'], '1')
+                new_sheet.cell(row=6, column=col_idx).value = 1
+                new_sheet.cell(row=7, column=col_idx).value = get_mapping_value(df_mapping, i, ['level', 'Level'], '1')
+                
+                # Aggregation fields with multiple column attempts
+                agg_mappings = [
+                    (8, ['Aggreg_1_ID', 'Aggreg_1', 'Agg_1']),
+                    (9, ['Aggreg_2_ID', 'Aggreg_2', 'Agg_2']),
+                    (10, ['Aggreg_3_ID', 'Aggreg_3', 'Agg_3']),
+                    (11, ['Aggreg_4_ID', 'Aggreg_4', 'Agg_4']),
+                    (12, ['Aggreg_5_ID', 'Aggreg_5', 'Agg_5'])
+                ]
+                
+                for row_num, possible_cols in agg_mappings:
+                    value = get_mapping_value(df_mapping, i, possible_cols, 'N/A')
+                    cell = new_sheet.cell(row=row_num, column=col_idx)
+                    cell.value = value
+                    copy_format_safe(source_cell, cell)
+                
+                business_mappings = [
+                    (13, ['Measurement_Model', 'Measurement', 'Model'], 'VFA'),
+                    (14, ['OCI_Option', 'OCI', 'Option_OCI'], 'No'),
+                    (15, ['GoC_Currency', 'GOC_Currency', 'Currency_GOC'], 'EUR'),
+                    (16, ['Reporting_Currency', 'Rep_Currency', 'Currency_Rep'], 'EUR'),
+                    (17, ['GoC_Type_Reinsurance', 'Type_Reinsurance', 'Reinsurance'], 'Gross')
+                ]
+                
+                for row_num, possible_cols, default_val in business_mappings:
+                    value = get_mapping_value(df_mapping, i, possible_cols, default_val)
+                    cell = new_sheet.cell(row=row_num, column=col_idx)
+                    cell.value = value
+                    copy_format_safe(source_cell, cell)
+                
+                for row_num in [954, 955, 956]:
+                    cell = new_sheet.cell(row=row_num, column=col_idx)
+                    cell.value = 'No'
+                    copy_format_safe(source_cell, cell)
+                
+                col_letter = openpyxl.utils.get_column_letter(col_idx)
+                for _, formula_row in df_formulas.iterrows():
+                    try:
+                        formula = str(formula_row['All_Goc_Formula']).replace('Col', col_letter)
+                        target_row = int(formula_row['Row_Index'])
+                        target_cell = new_sheet.cell(row=target_row, column=col_idx)
+                        target_cell.value = formula
+                        copy_format_safe(source_cell, target_cell)
+                    except Exception:
+                        continue
+    except Exception:
+        pass
+
+
+
+# Fast parallel file reading
+files_to_read = [
+    ('All_GoC_GoC_Attributes', 'All_GoC_GoC_Attributes', run_date),
+    ('All_GoC_Actuarial_AoM', 'All_GoC_Actuarial_AoM', run_date),
+    ('All_GoC_IFRS17_AoM_PnL', 'All_GoC_IFRS17_AoM_PnL', run_date)
+]
+
+with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+    results = list(executor.map(read_file_safe, files_to_read))
+
+file_dict = dict(results)
+df_gocattributes = file_dict.get('All_GoC_GoC_Attributes', pd.DataFrame())
+df_act_goc = file_dict.get('All_GoC_Actuarial_AoM', pd.DataFrame())
+df_ifrs_goc = file_dict.get('All_GoC_IFRS17_AoM_PnL', pd.DataFrame())
+
+if df_gocattributes.empty:
+    dbutils.notebook.exit("ERROR: 'All_GoC_GoC_Attributes.csv' is required")
+
+
+# Fast mapping preparation with validation
+df_gocmapping = df_gocattributes.copy()
+
+try:
+    if 't' in df_gocmapping.columns:
+        df_gocmapping = df_gocmapping[df_gocmapping['t'] != 0].copy()
+    
+    if 'iter' not in df_gocmapping.columns:
+        df_gocmapping['iter'] = '1'
+    
+    if 'level' not in df_gocmapping.columns and 'Level' in df_gocmapping.columns:
+        df_gocmapping.rename(columns={'Level': 'level'}, inplace=True)
+except Exception:
+    pass
+
+# Fast CURR generation
+df_act_rep = pd.DataFrame()
+df_ifrs_rep = pd.DataFrame()
+
+if auto_generate_curr and currency_rep and all_gocs:
+    if not df_act_goc.empty:
+        df_act_rep = generate_curr(df_act_goc, fx_rate)
+    if not df_ifrs_goc.empty:
+        df_ifrs_rep = generate_curr(df_ifrs_goc, fx_rate)
+
+
+# Efficient Excel creation
+local_path = f"ToolKit_Reports_{run_date}.xlsx"
+# shutil.copyfile(template_dir, local_path)
+
+wb = load_workbook(template_dir)
+if not hasattr(wb, "calc_properties") or wb.calc_properties is None:
+    wb.calc_properties = CalcProperties(fullCalcOnLoad=True)
+else:
+    wb.calc_properties.fullCalcOnLoad = True
+
+# Safe data injection
+safe_inject(wb, 'Sunrise_GoC_Attributes', df_gocattributes)
+safe_inject(wb, 'GoC_Mapping', df_gocmapping)
+
+if currency_goc and all_gocs:
+    safe_inject(wb, 'Actuarial_All_GoC_GoC_Curr', df_act_goc)
+    safe_inject(wb, 'IFRS17_All_GoC_GoC_Curr', df_ifrs_goc)
+
+if currency_rep and all_gocs:
+    safe_inject(wb, 'Actuarial_All_GoC_Rep_Curr', df_act_rep)
+    safe_inject(wb, 'IFRS17_All_GoC_Rep_Curr', df_ifrs_rep)
+
+
+#  VAR generation
+if var_report and all_gocs:
+    try:
+        if os.path.exists(support_dir) and 'TEMP_ASTRA_VAR' in wb.sheetnames:
+            df_var_formulas = pd.read_csv(support_dir, sep='|')
+            df_mapping_clean = df_gocmapping.reset_index(drop=True)
+            
+            if currency_rep:
+                create_var_report(wb, 'TEMP_ASTRA_VAR', 'All_GoC_Rep_Curr', period, df_mapping_clean, df_var_formulas)
+                
+                if currency_goc and currency_rep:
+                    try:
+                        rep_sheet = wb[f'VAR_All_GoC_Rep_Curr_{period}']
+                        goc_sheet = wb.copy_worksheet(rep_sheet)
+                        goc_sheet.title = f'VAR_All_GoC_GoC_Curr_{period}'
+                        goc_sheet.cell(row=2, column=3).value = 'All_GoC_GoC_Curr'
+                    except Exception:
+                        pass
+            
+            if currency_goc and not (currency_goc and currency_rep):
+                create_var_report(wb, 'TEMP_ASTRA_VAR', 'All_GoC_GoC_Curr', period, df_mapping_clean, df_var_formulas)
+    except Exception:
+        pass
+
+
+# COMMAND ----------
+# Safe finalization
+try:
+    if 'Results' in wb.sheetnames:
+        ws = wb['Results']
+        ws['B2'] = environment
+        ws['B3'] = period
+        ws['B4'] = user_email
+        ws['B5'] = run_date
+        ws['B6'] = f"FX_Rate: {fx_rate}"
+        ws['B7'] = f"Auto_Generate_CURR: {auto_generate_curr}"
+except Exception:
+    pass
+
+# Save and finalize
+try:
+    wb.save(local_path)
+    final_path = os.path.join(output_path_run, local_path)
+    shutil.move(local_path, final_path)
+    dbutils.notebook.exit(final_path)
+except Exception as e:
+    dbutils.notebook.exit(f"ERROR: Could not save file: {str(e)}")
+
+# COMMAND ----------

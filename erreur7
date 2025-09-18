@@ -429,6 +429,17 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
           df <- data_list[[idx]]
           table_name <- names(data_list)[idx]
           tab_id <- paste0(id, "-", idx, "_", tokenUI)
+          
+          # DEBUG: Print table info
+          cat("🔍 DEBUG: ===== Processing table", idx, "=====\n")
+          cat("🔍 DEBUG: Table name:", table_name, "\n")
+          cat("🔍 DEBUG: Tab ID:", tab_id, "\n")
+          cat("🔍 DEBUG: Data dimensions:", nrow(df), "x", ncol(df), "\n")
+          cat("🔍 DEBUG: Column names:", paste(names(df), collapse = ", "), "\n")
+          if (nrow(df) > 0) {
+            cat("🔍 DEBUG: First few rows:\n")
+            print(head(df, 3))
+          }
 
           # Add per-tab controls (download + plots container) above the DT
           insertUI(
@@ -458,49 +469,105 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
           }
 
           # Add plots based on configuration
+          cat("🔍 DEBUG: Starting plot configuration check...\n")
+          cat("🔍 DEBUG: Number of plot configs:", length(config$plots), "\n")
+          
           if (length(config$plots) > 0) {
-            for (plot_config in config$plots) {
-              if (grepl(plot_config$pattern, gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+            for (i in seq_along(config$plots)) {
+              plot_config <- config$plots[[i]]
+              pattern_check <- grepl(plot_config$pattern, gsub_underscore_dash(" ", "_", tolower(table_name)))
+              
+              cat("🔍 DEBUG: Plot config", i, "- Pattern:", plot_config$pattern, "\n")
+              cat("🔍 DEBUG: Table name (processed):", gsub_underscore_dash(" ", "_", tolower(table_name)), "\n")
+              cat("🔍 DEBUG: Pattern match:", pattern_check, "\n")
+              
+              if (pattern_check) {
+                cat("✅ DEBUG: Pattern matched! Creating UI and plots...\n")
+                
                 # Call UI function with parameters if it's a function, otherwise use as is
                 ui_content <- if (is.function(plot_config$ui)) {
-                  plot_config$ui(tab_id, tokenUI)
+                  cat("🔍 DEBUG: UI is a function, calling with tab_id:", tab_id, "tokenUI:", tokenUI, "\n")
+                  result_ui <- plot_config$ui(tab_id, tokenUI)
+                  cat("🔍 DEBUG: UI function returned\n")
+                  result_ui
                 } else {
+                  cat("🔍 DEBUG: UI is static content\n")
                   plot_config$ui
                 }
-                insertUI(selector = paste0("#", paste0("plots_", tab_id)), where = "beforeEnd", ui = ui_content)
                 
-                # Add plot logic - Execute directly in observe context (like original code)
+                selector_target <- paste0("#", paste0("plots_", tab_id))
+                cat("🔍 DEBUG: Inserting UI with selector:", selector_target, "\n")
+                insertUI(selector = selector_target, where = "beforeEnd", ui = ui_content)
+                cat("✅ DEBUG: UI inserted successfully\n")
+                
+                # DEBUG: Print plot configuration info
+                cat("🔍 DEBUG: Plot config found for pattern:", plot_config$pattern, "\n")
+                cat("🔍 DEBUG: Table name:", table_name, "\n")
+                cat("🔍 DEBUG: Number of plots to create:", length(plot_config$plots), "\n")
+                cat("🔍 DEBUG: Plot names:", names(plot_config$plots), "\n")
+                
+                # Add plot logic - Use EXACTLY the same approach as code.R
                 for (plot_name in names(plot_config$plots)) {
                   plot_spec <- plot_config$plots[[plot_name]]
+                  plot_output_id <- paste0(plot_name, "_", tab_id, "_", tokenUI)
                   
-                  # Execute the plot logic directly in the current environment (like original code)
-                  local({
-                    current_plot_name <- plot_name
-                    current_plot_spec <- plot_spec
-                    current_df <- df
-                    current_tab_id <- tab_id
-                    current_tokenUI <- tokenUI
+                  cat("🔍 DEBUG: Creating plot:", plot_name, "with ID:", plot_output_id, "\n")
+                  cat("🔍 DEBUG: Data frame columns:", paste(names(df), collapse = ", "), "\n")
+                  cat("🔍 DEBUG: Data frame rows:", nrow(df), "\n")
+                  
+                  if (is.function(plot_spec)) {
+                    # Check if it's a custom function (takes 3 params) or generic function (takes 1 param)
+                    plot_params <- formals(plot_spec)
+                    cat("🔍 DEBUG: Function has", length(plot_params), "parameters\n")
                     
-                    if (is.function(current_plot_spec)) {
-                      # Check if it's a custom function (takes 3 params) or generic function (takes 1 param)
-                      plot_params <- formals(current_plot_spec)
-                      if (length(plot_params) >= 3) {
-                        # Custom function that returns renderPlotly - execute directly
-                        output[[paste0(current_plot_name, "_", current_tab_id, "_", current_tokenUI)]] <- 
-                          current_plot_spec(current_df, current_tab_id, current_tokenUI)
-                      } else {
-                        # Generic function that returns a plotly object
-                        output[[paste0(current_plot_name, "_", current_tab_id, "_", current_tokenUI)]] <- renderPlotly({
-                          current_plot_spec(current_df)
-                        })
-                      }
-                    } else if (is.list(current_plot_spec) && !is.null(current_plot_spec$renderer)) {
-                      output[[paste0(current_plot_name, "_", current_tab_id, "_", current_tokenUI)]] <- 
-                        current_plot_spec$renderer(current_df, current_tab_id, current_tokenUI)
+                    if (length(plot_params) >= 3) {
+                      cat("🔍 DEBUG: Executing custom function for", plot_name, "\n")
+                      tryCatch({
+                        # Custom function - execute exactly like in code.R
+                        result <- plot_spec(df, tab_id, tokenUI)
+                        output[[plot_output_id]] <- result
+                        cat("✅ DEBUG: Successfully assigned custom plot", plot_name, "\n")
+                      }, error = function(e) {
+                        cat("❌ DEBUG: Error in custom plot", plot_name, ":", e$message, "\n")
+                        print(e)
+                      })
                     } else {
-                      output[[paste0(current_plot_name, "_", current_tab_id, "_", current_tokenUI)]] <- current_plot_spec
+                      cat("🔍 DEBUG: Executing generic function for", plot_name, "\n")
+                      tryCatch({
+                        # Generic function
+                        output[[plot_output_id]] <- renderPlotly({
+                          cat("🔍 DEBUG: Inside renderPlotly for", plot_name, "\n")
+                          plot_result <- plot_spec(df)
+                          cat("✅ DEBUG: Plot object created for", plot_name, "\n")
+                          plot_result
+                        })
+                        cat("✅ DEBUG: Successfully assigned generic plot", plot_name, "\n")
+                      }, error = function(e) {
+                        cat("❌ DEBUG: Error in generic plot", plot_name, ":", e$message, "\n")
+                        print(e)
+                      })
                     }
-                  })
+                  } else if (is.list(plot_spec) && !is.null(plot_spec$renderer)) {
+                    cat("🔍 DEBUG: Executing list renderer for", plot_name, "\n")
+                    tryCatch({
+                      output[[plot_output_id]] <- plot_spec$renderer(df, tab_id, tokenUI)
+                      cat("✅ DEBUG: Successfully assigned list renderer plot", plot_name, "\n")
+                    }, error = function(e) {
+                      cat("❌ DEBUG: Error in list renderer", plot_name, ":", e$message, "\n")
+                      print(e)
+                    })
+                  } else {
+                    cat("🔍 DEBUG: Direct assignment for", plot_name, "\n")
+                    output[[plot_output_id]] <- plot_spec
+                    cat("✅ DEBUG: Successfully assigned direct plot", plot_name, "\n")
+                  }
+                  
+                  # Verify the output was actually assigned
+                  if (exists(plot_output_id, envir = as.environment(output))) {
+                    cat("✅ DEBUG: Confirmed plot", plot_output_id, "exists in output\n")
+                  } else {
+                    cat("❌ DEBUG: Plot", plot_output_id, "NOT found in output!\n")
+                  }
                 }
               }
             }

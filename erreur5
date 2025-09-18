@@ -1,0 +1,860 @@
+#----------------------------------------------------------------------------------#
+#----------------------------------------------------------------------------------#
+#--------------------------------- Help Functions ---------------------------------#
+#----------------------------------------------------------------------------------#
+#----------------------------------------------------------------------------------#
+
+
+# Help Functions
+process_dashboard_risk_framework_liquidity <- function(params) {
+    appSelected <- params$runInfo$appSelected
+    run_date <- params$runInfo$runDate
+    environment <- params$environment
+
+    engine_output <- fread(path_admin_param_engine_output, sep = global_separator)
+    tempOutput <- engine_output[tolower(gsub_underscore_dash(" ", "_", engine_output$app)) == tolower(gsub_underscore_dash(" ", "_", appSelected)),]
+    files <- tempOutput[tolower(tempOutput$type) == "file", ]
+    files$tableaddress <- sprintf(as.character(files$tableaddress), run_date)
+    files <- files[!grepl("awa", tolower(files$output)), ]
+
+    prod_path <- paste0(foundationRuns_dbfs_root_path, "/", gsub_underscore_dash(" ", "_", tolower(appSelected)), "/", environment, "/Outputs/", run_date)
+    data <- list()
+    j <- 1
+    for(i in 1:nrow(files)){
+        file_path <- file.path(prod_path, files$tableaddress[i])
+        if(grepl(".csv", file_path)){
+            data[[j]] <- fread(file_path, sep = global_separator)
+            names(data)[j] <- files$output[i]
+        }
+        j <- j + 1
+    }
+
+
+    return(data)
+}
+
+
+
+ #----------------------------------------------------------------------------------#
+ #----------------------------------------------------------------------------------#
+ #------------------------------------ Module --------------------------------------#
+ #----------------------------------------------------------------------------------#
+ #----------------------------------------------------------------------------------#
+
+createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
+  ns <- NS(id)
+
+  observe({
+    req(reactiveReportObject$app)
+    appSelected <- reactiveReportObject$app
+    if (!tolower(gsub_underscore_dash(" ", "_", appSelected)) %in% c("rf_liquidity")) {
+      return()
+    }
+
+    showPageSpinner()
+    tryCatch({
+      # Cleanup previous content
+      removeUI(selector = paste0("#", id, "ContentAnalysis"), immediate = TRUE)
+
+      data_list <- reactiveReportObject$reportData
+      if (is.null(data_list)) {
+        hidePageSpinner()
+        return()
+      }
+      if (!is.list(data_list)) {
+        data_list <- list(data_list)
+        names(data_list) <- c("Report")
+      }
+
+
+      # Build tabs
+      tabs <- Map(function(i) list(id = paste0(id, "-", i, "_", tokenUI), name = names(data_list)[i]), seq_len(length(data_list)))
+
+      ui_root <- tags$div(
+        id = paste0(id, "ContentAnalysis"),
+        class = "row",
+        tags$div(class = "col-12 mb-2",
+          downloadButton(ns(paste0("download_all_data_excel_", tokenUI)), "📦 Download all in Excel", class = "btn btn-primary my-2")
+        ),
+        tags$div(class = "col-12", Generate_dashboard_tabs_table(tabs, typesOfTable = rep("DT", length(tabs))))
+      )
+
+      insertUI(selector = paste0("#", id, "Content"), ui = ui_root, immediate = TRUE)
+
+      # Populate each tab content
+      for (i in seq_along(data_list)) {
+        local({
+          idx <- i
+          df <- data_list[[idx]]
+          table_name <- names(data_list)[idx]
+
+          tab_id <- paste0(id, "-", idx, "_", tokenUI)
+
+          # Add per-tab controls (download + plots container) above the DT
+          insertUI(
+            selector = paste0("#nav-", tab_id),
+            where = "afterBegin",
+            ui = tags$div(
+              class = "my-3",
+              fluidRow(
+                column(12, class = "d-flex justify-content-between align-items-center mb-2",
+                  downloadButton(outputId = paste0("download_", tab_id, "_", tokenUI), label = "📥 Download CSV", class = "btn btn-sm btn-success")
+                )
+              ),
+              tags$div(id = paste0("plots_", tab_id))
+            )
+          )
+
+          # Plots depending on table type
+          if (grepl("intermediate_report", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+            insertUI(
+              selector = paste0("#", paste0("plots_", tab_id)),
+              where = "beforeEnd",
+              ui = fluidRow(
+                column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_impact_", tab_id, "_", tokenUI), height = "550px")),
+                column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_waterfall_", tab_id, "_", tokenUI), height = "550px")),
+                column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_pie_", tab_id, "_", tokenUI), height = "550px"))
+              )
+            )
+
+            output[[paste0("plot_impact_", tab_id, "_", tokenUI)]] <- renderPlotly({
+              req(df$lrm_classification, df$Ressources_before_haircut)
+              plot_ly(df,
+                x = ~lrm_classification,
+                y = ~Ressources_before_haircut,
+                type = "bar",
+                text = ~scales::percent(Ressources_before_haircut, accuracy = 0.1),
+                hoverinfo = "text+y",
+                color = ~lrm_classification
+              ) %>%
+              layout(title = "Resources before haircut", xaxis = list(title = ""), yaxis = list(title = "Impact (%)")) %>%
+              layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
+            })
+
+            output[[paste0("plot_waterfall_", tab_id, "_", tokenUI)]] <- renderPlotly({
+              req(df$lrm_classification, df$Financial_Impact)
+              df_agg <- df %>%
+                dplyr::group_by(lrm_classification) %>%
+                dplyr::summarise(Financial_Impact = sum(-Financial_Impact, na.rm = TRUE)) %>%
+                dplyr::arrange(desc(abs(Financial_Impact))) %>%
+                dplyr::mutate(
+                  prefix = paste0(LETTERS[seq_along(lrm_classification)], ". "),
+                  label = paste0(prefix, lrm_classification),
+                  measure = "relative",
+                  text = format(Financial_Impact, big.mark = " ")
+                )
+              total <- data.frame(
+                label = "Total",
+                Financial_Impact = sum(df_agg$Financial_Impact, na.rm = TRUE),
+                measure = "total",
+                text = format(sum(df_agg$Financial_Impact, na.rm = TRUE), big.mark = " ")
+              )
+              df_waterfall <- dplyr::bind_rows(df_agg[, c("label", "Financial_Impact", "measure", "text")], total)
+              plot_ly(
+                df_waterfall,
+                type = "waterfall",
+                x = ~label,
+                y = ~Financial_Impact,
+                text = ~text,
+                measure = ~measure,
+                textposition = "outside",
+                connector = list(line = list(color = "rgba(63, 63, 63, 0.7)"))
+              ) %>%
+                layout(
+                  title = "Financial Impact",
+                  xaxis = list(title = "", tickangle = -45),
+                  yaxis = list(title = "Financial Impact (€)"),
+                  paper_bgcolor = 'rgba(0,0,0,0)',
+                  plot_bgcolor = 'rgba(0,0,0,0)'
+                )
+            })
+
+            output[[paste0("plot_pie_", tab_id, "_", tokenUI)]] <- renderPlotly({
+              req(df$lrm_classification, df$Weighted_resources_after_encumbrance)
+              plot_ly(
+                df,
+                labels = ~lrm_classification,
+                values = ~abs(Weighted_resources_after_encumbrance),
+                type = "pie",
+                textinfo = "label+percent",
+                hoverinfo = "label+value+percent"
+              ) %>%
+                layout(title = "Weighted Resources After Encumbrance", showlegend = TRUE) %>%
+                layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
+            })
+          }
+
+          if (grepl("stress_impact_report", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+            insertUI(
+              selector = paste0("#", paste0("plots_", tab_id)),
+              where = "beforeEnd",
+              ui = fluidRow(
+                column(12, class = "col-12 col-md-4 offset-md-4", plotlyOutput(outputId = paste0("plot_pie_", tab_id, "_", tokenUI), height = "550px"))
+              )
+            )
+            output[[paste0("plot_pie_", tab_id, "_", tokenUI)]] <- renderPlotly({
+              req(df$risk_module, df$external_figures)
+              plot_ly(
+                df,
+                labels = ~risk_module,
+                values = ~abs(external_figures),
+                type = "pie",
+                textinfo = "label+percent",
+                hoverinfo = "label+value+percent"
+              ) %>%
+                layout(title = "External Figures", showlegend = TRUE) %>%
+                layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
+            })
+          }
+
+          if (grepl("liquidity_report", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+            df_vals <- df %>%
+              dplyr::filter(get(names(df)[1]) %in% c("Excess liquidity", "Stress impact", "Available weighted resources")) %>%
+              tidyr::pivot_wider(names_from = names(df)[1], values_from = `New methodology`) %>%
+              dplyr::mutate(
+                stress = `Stress impact`,
+                excess = `Excess liquidity`
+              )
+            insertUI(
+              selector = paste0("#", paste0("plots_", tab_id)),
+              where = "beforeEnd",
+              ui = fluidRow(
+                column(12, plotlyOutput(outputId = paste0("plot_liquidity_", tab_id, "_", tokenUI), height = "200px"))
+              )
+            )
+            output[[paste0("plot_liquidity_", tab_id, "_", tokenUI)]] <- renderPlotly({
+              plot_ly(type = "bar", orientation = "h") %>%
+                add_trace(
+                  x = ~df_vals$`Stress impact`,
+                  y = "Available weighted resources",
+                  name = "Stress impact",
+                  marker = list(color = 'rgba(255, 99, 71, 0.8)'),
+                  text = ~format(df_vals$`Stress impact`, big.mark = " "),
+                  hoverinfo = "text+x"
+                ) %>%
+                add_trace(
+                  x = ~df_vals$`Excess liquidity`,
+                  y = "Available weighted resources",
+                  name = "Excess liquidity",
+                  marker = list(color = 'rgba(0, 200, 0, 0.7)'),
+                  text = ~format(df_vals$`Excess liquidity`, big.mark = " "),
+                  hoverinfo = "text+x"
+                ) %>%
+                layout(
+                  barmode = "stack",
+                  title = "",
+                  xaxis = list(title = "Amount (mEUR)", tickformat = ",.0f"),
+                  yaxis = list(title = ""),
+                  paper_bgcolor = 'rgba(0,0,0,0)',
+                  plot_bgcolor = 'rgba(0,0,0,0)',
+                  showlegend = TRUE
+                )
+            })
+          }
+
+          # Table (target id inserted by Generate_dashboard_tabs_table)
+          output[[paste0("td_dashboard_", tab_id)]] <- renderDT({
+            num_cols <- names(df)[sapply(df, is.numeric)]
+            df_clean <- df
+            show_total <- grepl("intermediate_report|weighted|stress_impact", gsub_underscore_dash(" ", "_", tolower(table_name)))
+            if (show_total && length(num_cols) > 0) {
+              total_row <- df_clean[, lapply(.SD, function(x) if (is.numeric(x)) sum(x, na.rm = TRUE) else NA), .SDcols = num_cols]
+              total_row[, setdiff(names(df_clean), num_cols) := lapply(setdiff(names(df_clean), num_cols), function(x) "Total")]
+              df_clean <- rbind(df_clean, total_row, fill = TRUE)
+            }
+            dt <- datatable(
+              df_clean,
+              rownames = FALSE,
+              options = list(paging = FALSE, dom = 'tip', autoWidth = TRUE, ordering = TRUE),
+              filter = "top"
+            )
+            for (col in num_cols) {
+              if (col %in% c("lrm_weight", "Impact Weighted Resource")) {
+                dt <- DT::formatPercentage(dt, columns = col, digits = 2)
+              } else {
+                dt <- DT::formatCurrency(dt, columns = col, currency = "", digits = 0, interval = 3, mark = " ")
+              }
+            }
+            if (show_total) {
+              dt <- DT::formatStyle(dt, columns = 0, target = "row", rows = nrow(df_clean), fontWeight = "bold", backgroundColor = "#f9f9f9")
+            }
+            dt
+          })
+
+          # Downloads
+          output[[paste0("download_", tab_id, "_", tokenUI)]] <- downloadHandler(
+            filename = function() paste0(gsub("[\\/:*?\"<>|]", "_", table_name), ".csv"),
+            content = function(file) {
+              fwrite(df, file, row.names = FALSE, sep = user_separator(), quote = TRUE)
+            }
+          )
+        })
+      }
+
+      # Download all to Excel
+      output[[ns(paste0("download_all_data_excel_", tokenUI))]] <- downloadHandler(
+        filename = function() paste0("RiskFrameworkLiquidity_Report_", Sys.Date(), ".xlsx"),
+        content = function(file) {
+          openxlsx::write.xlsx(data_list, file)
+        }
+      )
+
+      hidePageSpinner()
+      runjs("$('a[href=\"#historyAnalysis\"]').click();")
+    }, error = function(e) {
+      print(e)
+      hidePageSpinner()
+      runjs("toastr.error('Error.. please retry again','',toastr.options.timeOut='500');")
+    })
+  })
+}
+
+
+
+
+
+#----------------------------------------------------------------------------------#
+#----------------------------------------------------------------------------------#
+#--------------------------------- Help Functions ---------------------------------#
+#----------------------------------------------------------------------------------#
+#----------------------------------------------------------------------------------#
+
+
+# Help Functions
+process_dashboard_ip_local_main <- function(params) {
+    appSelected <- params$runInfo$appSelected
+    run_date <- params$runInfo$runDate
+    environment <- params$environment
+
+    engine_output <- fread(path_admin_param_engine_output, sep = global_separator)
+    tempOutput <- engine_output[tolower(gsub_underscore_dash(" ", "_", engine_output$app)) == tolower(gsub_underscore_dash(" ", "_", appSelected)),]
+    files <- tempOutput[tolower(tempOutput$type) == "file", ]
+    files$tableaddress <- sprintf(as.character(files$tableaddress), run_date)
+    files <- files[!grepl("awa", tolower(files$output)), ]
+
+    prod_path <- paste0(foundationRuns_dbfs_root_path, "/", gsub_underscore_dash(" ", "_", tolower(appSelected)), "/", environment, "/Outputs/", run_date)
+    data <- list()
+    j <- 1
+    for(i in 1:nrow(files)){
+        file_path <- file.path(prod_path, files$tableaddress[i])
+        if(grepl(".csv", file_path)){
+            data[[j]] <- fread(file_path, sep = global_separator)
+            names(data)[j] <- files$output[i]
+        }
+        j <- j + 1
+    }
+    return(data)
+}
+
+
+
+ #----------------------------------------------------------------------------------#
+ #----------------------------------------------------------------------------------#
+ #------------------------------------ Module --------------------------------------#
+ #----------------------------------------------------------------------------------#
+ #----------------------------------------------------------------------------------#
+
+createIPLocalMainUI <- function(id, reactiveReportObject) {
+  ns <- NS(id)
+
+  observe({
+    req(reactiveReportObject$app)
+    appSelected <- reactiveReportObject$app
+    if (!tolower(gsub_underscore_dash(" ", "_", appSelected)) %in% c("ip_local")) {
+      return()
+    }
+
+    showPageSpinner()
+    tryCatch({
+      # Cleanup previous content
+      removeUI(selector = paste0("#", id, "ContentAnalysis"), immediate = TRUE)
+
+      data_list <- reactiveReportObject$reportData
+      if (is.null(data_list)) {
+        hidePageSpinner()
+        return()
+      }
+      if (!is.list(data_list)) {
+        data_list <- list(data_list)
+        names(data_list) <- c("Report")
+      }
+
+      # Ne garder dans data_list que les éléments dont le nom contient "interface"
+      data_list <- data_list[grepl("interface", gsub_underscore_dash(" ", "_", tolower(names(data_list))))]
+      if (length(data_list) == 0) {
+        hidePageSpinner()
+        runjs("toastr.error('No interface data found','',toastr.options.timeOut='500');")
+        return()
+      }
+
+      typesOfTable <- rep("DT", length(data_list))
+      typesOfTable[grepl("interface_alloc", gsub_underscore_dash(" ", "_", tolower(names(data_list))))] <- "RHandsontable"
+
+
+
+
+      # Build tabs
+      tabs <- Map(function(i) list(id = paste0(id, "-", i), name = names(data_list)[i]), seq_len(length(data_list)))
+
+      ui_root <- tags$div(
+        id = paste0(id, "ContentAnalysis"),
+        class = "row",
+        tags$div(class = "col-12 mb-2",
+          downloadButton(ns("download_all_data_excel"), "📦 Download all in Excel", class = "btn btn-primary my-2")
+        ),
+        tags$div(class = "col-12", Generate_dashboard_tabs_table(tabs, typesOfTable))
+      )
+
+      insertUI(selector = paste0("#", id, "Content"), ui = ui_root, immediate = TRUE)
+
+      # Populate each tab content
+      for (i in seq_along(data_list)) {
+        local({
+          boolDfToShow <- TRUE
+          idx <- i
+          df <- data_list[[idx]]
+          table_name <- names(data_list)[idx]
+
+          tab_id <- paste0(id, "-", idx)
+
+          # Add per-tab controls (download + plots container) above the DT
+          insertUI(
+            selector = paste0("#nav-", tab_id),
+            where = "afterBegin",
+            ui = tags$div(
+              class = "my-3",
+              fluidRow(
+                column(12, class = "d-flex justify-content-between align-items-center mb-2",
+                  downloadButton(outputId = paste0("download_", tab_id), label = "📥 Download all the file in CSV", class = "btn btn-sm btn-success")
+                )
+              ),
+              tags$div(id = paste0("plots_", tab_id))
+            )
+          )
+
+
+          # Plots depending on table type
+          if (grepl("interface_alloc", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+            portefeuilles <- unique(df$portefeuille)
+            source_types <- unique(df$source_type)
+            insertUI(
+              selector = paste0("#", paste0("plots_", tab_id)),
+              where = "beforeEnd",
+              ui = fluidRow(
+                column(12, class = "col-12 col-md-4", customSelectWithValues(inputId = "selector_portfolios_alloc", label = "Select a portfolio", icon = "briefcase", message = "Select a portfolio", options = portefeuilles, labels = portefeuilles, multiple = FALSE, disabled = FALSE, selected = NULL)),
+                column(12, class = "col-12 col-md-4", customSelectWithValues(inputId = "selector_source_type_alloc", label = "Select a source type", icon = "briefcase", message = "Select a source type", options = source_types, labels = source_types, multiple = FALSE, disabled = FALSE, selected = NULL)),
+                column(12, class = "col-12 col-md-4", actionButton(inputId = "action_button_alloc", label = "Generate", class = "btn btn-sm btn-success btn-rounded foundation-btn-primary"))
+              )
+            )
+
+
+            # INSERT_YOUR_CODE
+
+            observeEvent(input$action_button_alloc, {
+              req(input$selector_portfolios_alloc, input$selector_source_type_alloc)
+              df <- as.data.table(df)
+              # Filter the data based on selected portfolio and source_type
+              df_filtered <- df[
+                portefeuille == input$selector_portfolios_alloc & 
+                source_type == input$selector_source_type_alloc,
+              ]
+              
+              df_filtered$portefeuille <- NULL
+              df_filtered$source_type <- NULL
+              # Cast the table: years in columns, keep SAA Asset Class, Level 4, Currency as keys
+              # We'll keep all other columns as values, except portefeuille, source_type, year, SAA Asset Class, Level 4, Currency
+              value_vars <- setdiff(
+                names(df_filtered),
+                c("portefeuille", "source_type", "year", "SAA Asset Class", "Level 4", "Currency")
+              )
+              
+              # For each value_var, we want to cast year as columns
+              # We'll melt and dcast for each value_var, then merge
+              
+              # Prepare a list to store each casted value_var
+              casted_list <- lapply(value_vars, function(vv) {
+                dcast(
+                  df_filtered,
+                  formula = as.formula(paste("`SAA Asset Class` + `Level 4` + Currency ~ year")),
+                  value.var = vv,
+                  fun.aggregate = function(x) {
+                    if (length(x) == 0) {
+                      NA
+                    } else if (all(is.na(x))) {
+                      NA
+                    } else if (is.numeric(x)) {
+                      sum(x, na.rm = TRUE)
+                    } else {
+                      # For non-numeric, return the first non-NA value, or NA if all NA
+                      x_no_na <- x[!is.na(x)]
+                      if (length(x_no_na) == 0) NA else x_no_na[1]
+                    }
+                  }
+                )
+              })
+              
+              # Name the list elements
+              names(casted_list) <- value_vars
+              
+              # Now, for each value_var, add a prefix to the year columns
+              for (i in seq_along(casted_list)) {
+                value_var <- names(casted_list)[i]
+                casted <- casted_list[[i]]
+                year_cols <- setdiff(names(casted), c("SAA Asset Class", "Level 4", "Currency"))
+                setnames(
+                  casted,
+                  year_cols,
+                  paste0(value_var, "_", year_cols)
+                )
+                casted_list[[i]] <- casted
+              }
+              
+              # Merge all casted tables by the keys
+              casted_merged <- Reduce(function(x, y) merge(x, y, by = c("SAA Asset Class", "Level 4", "Currency"), all = TRUE), casted_list)
+              
+              # Identify editable columns: names containing "Buy" or "Sell" (case-insensitive)
+              editable_cols <- grep("buy|sell", names(casted_merged), ignore.case = TRUE, value = TRUE)
+
+              # Identify numeric columns
+              numeric_cols <- names(casted_merged)[sapply(casted_merged, is.numeric)]
+
+              # ---- AJOUTER LIGNE TOTALE PAR SAA Asset Class ----
+              # Pour chaque SAA Asset Class, calculer le total sur toutes les colonnes numériques
+
+              # Ensure 'Level 4' and 'Currency' are character to avoid coercion warnings
+              casted_merged[, `Level 4` := as.character(`Level 4`)]
+              casted_merged[, Currency := as.character(Currency)]
+
+              # Compute total rows for each SAA Asset Class (numeric columns only)
+              total_rows <- casted_merged[, lapply(.SD, function(x) if (is.numeric(x)) sum(x, na.rm = TRUE) else NA_real_), 
+                                          by = .(`SAA Asset Class`)]
+
+              # Set 'Level 4' and 'Currency' to "Total" (as character)
+              total_rows[, `Level 4` := "Total"]
+              total_rows[, Currency := "Total"]
+
+              # Ensure all non-numeric columns are character to avoid coercion warnings
+              non_numeric_cols <- setdiff(names(casted_merged), numeric_cols)
+              for (col in non_numeric_cols) {
+                if (!is.character(total_rows[[col]])) {
+                  set(total_rows, j = col, value = as.character(total_rows[[col]]))
+                }
+              }
+
+              # Remettre les colonnes dans le même ordre
+              setcolorder(total_rows, names(casted_merged))
+
+              # Remplacer les colonnes non numériques par "Total" si NA
+              for (col in non_numeric_cols) {
+                total_rows[is.na(get(col)), (col) := "Total"]
+              }
+
+              # Fusionner les lignes totales avec le tableau principal
+              casted_merged_with_total <- rbindlist(
+                list(
+                  casted_merged,
+                  total_rows
+                ),
+                use.names = TRUE,
+                fill = TRUE
+              )
+
+              # Pour que la ligne totale soit à la fin de chaque groupe SAA Asset Class, on réordonne
+              casted_merged_with_total <- casted_merged_with_total[
+                order(`SAA Asset Class`, factor(`Level 4`, levels = c(setdiff(unique(casted_merged$`Level 4`), "Total"), "Total")), Currency)
+              ]
+
+              # On identifie les lignes totales pour le rendu JS
+              is_total_row <- casted_merged_with_total$`Level 4` == "Total" & casted_merged_with_total$Currency == "Total"
+
+              # Custom renderer: editable columns have a different background, all numbers have thousands sep
+              # Les lignes totales sont en gras, non éditables, fond gris clair
+              js_renderer <- paste0(
+                "function (instance, td, row, col, prop, value, cellProperties) {",
+                "  Handsontable.renderers.TextRenderer.apply(this, arguments);",
+                "  var editableCols = [", paste0("'", editable_cols, "'", collapse = ","), "];",
+                "  var numericCols = [", paste0("'", numeric_cols, "'", collapse = ","), "];",
+                "  var colHeader = instance.getColHeader()[col];",
+                "  const totalLabel = instance.getData()[row][1];",
+                "  var isTotalRow = false;",
+                "  try {",
+                "    var level4 = instance.getDataAtRowProp(row, 'Level 4');",
+                "    var currency = instance.getDataAtRowProp(row, 'Currency');",
+                "    if (level4 === 'Total' && currency === 'Total') { isTotalRow = true; }",
+                "  } catch(e) {}",
+                "  if (editableCols.indexOf(colHeader) !== -1) {",
+                "    td.style.background = '#e6f7ff';",
+                "    td.style.fontWeight = 'bold';",
+                "    cellProperties.readOnly = false;",
+                "  } else {",
+                "    td.style.background = '#f9f9f9';",
+                "    cellProperties.readOnly = true;",
+                "  }",
+                "  if (totalLabel === 'Total') {",
+                "     td.style.fontWeight = 'bold';",
+                "     td.style.background = '#e8e8e8';",
+                "     td.style.borderTop = '2px solid #333';",
+                "  }",
+                "  if (numericCols.indexOf(colHeader) !== -1 && value !== null && value !== undefined && value !== '') {",
+                "    var num = Number(value);",
+                "    if (!isNaN(num)) {",
+                "      td.innerHTML = num.toLocaleString('fr-FR');",
+                "    }",
+                "  }",
+                "}"
+              )
+              tableToShow <- rhandsontable(
+                casted_merged_with_total,
+                stretchH = "all",
+                rowHeaders = FALSE
+              ) %>%
+                hot_table(stretchH = "all") %>%
+                hot_cols(
+                  renderer = htmlwidgets::JS(js_renderer),
+                  readOnly = TRUE
+                ) %>%
+                hot_col(editable_cols, readOnly = FALSE)
+
+              # Insert the table UI if not already present
+              output[[paste0("td_dashboard_", tab_id)]] <- renderRHandsontable({
+                tableToShow
+              })
+            })
+
+            boolDfToShow <- FALSE
+
+            runjs(JS_MDB_Select_Element(paste0('#selector_portfolios_alloc')))
+            runjs(JS_MDB_Select_Element(paste0('#selector_source_type_alloc')))
+          }
+
+
+          # Table (target id inserted by Generate_dashboard_tabs_table)
+          if (boolDfToShow) {
+            output[[paste0("td_dashboard_", tab_id)]] <- renderDT({
+              num_cols <- names(df)[sapply(df, is.numeric)]
+              df_clean <- df
+              show_total <- grepl("intermediate_report|weighted|stress_impact", gsub_underscore_dash(" ", "_", tolower(table_name)))
+              if (show_total && length(num_cols) > 0) {
+                total_row <- df_clean[, lapply(.SD, function(x) if (is.numeric(x)) sum(x, na.rm = TRUE) else NA), .SDcols = num_cols]
+                total_row[, setdiff(names(df_clean), num_cols) := lapply(setdiff(names(df_clean), num_cols), function(x) "Total")]
+                df_clean <- rbind(df_clean, total_row, fill = TRUE)
+              }
+              dt <- datatable(
+                df_clean,
+                rownames = FALSE,
+                options = list(paging = FALSE, dom = 'tip', autoWidth = TRUE, ordering = TRUE),
+                filter = "top"
+              )
+              for (col in num_cols) {
+                if (col %in% c("lrm_weight", "Impact Weighted Resource")) {
+                  dt <- DT::formatPercentage(dt, columns = col, digits = 2)
+                } else {
+                  dt <- DT::formatCurrency(dt, columns = col, currency = "", digits = 0, interval = 3, mark = " ")
+                }
+              }
+              if (show_total) {
+                dt <- DT::formatStyle(dt, columns = 0, target = "row", rows = nrow(df_clean), fontWeight = "bold", backgroundColor = "#f9f9f9")
+              }
+              dt
+            })
+          }
+
+          # Downloads
+          output[[paste0("download_", tab_id)]] <- downloadHandler(
+            filename = function() paste0(gsub("[\\/:*?\"<>|]", "_", table_name), ".csv"),
+            content = function(file) {
+              fwrite(df, file, row.names = FALSE, sep = user_separator(), quote = TRUE)
+            }
+          )
+        })
+      }
+
+      # Download all to Excel
+      output[[ns("download_all_data_excel")]] <- downloadHandler(
+        filename = function() paste0("IPLocalMain_Report_", Sys.Date(), ".xlsx"),
+        content = function(file) {
+          openxlsx::write.xlsx(data_list, file)
+        }
+      )
+
+      hidePageSpinner()
+      runjs("$('a[href=\"#historyAnalysis\"]').click();")
+    }, error = function(e) {
+      print(e)
+      hidePageSpinner()
+      runjs("toastr.error('Error.. please retry again','',toastr.options.timeOut='500');")
+    })
+  })
+}
+
+createIPLocalMainUI("currentRun", reactiveReport)
+createIPLocalMainUI("compareRun", reactiveCompareReport)
+
+
+
+#----------------------------------------------------------------------------------#
+#----------------------------------------------------------------------------------#
+#--------------------------------- Help Functions ---------------------------------#
+#----------------------------------------------------------------------------------#
+#----------------------------------------------------------------------------------#
+
+process_dashboard_am_fees_report <- function(params) {
+    appSelected <- params$runInfo$appSelected
+    run_date <- params$runInfo$runDate
+    environment <- params$environment
+    engine_output <- fread(path_admin_param_engine_output, sep = global_separator)
+    tempOutput <- engine_output[tolower(gsub_underscore_dash(" ", "_", engine_output$app)) == tolower(gsub_underscore_dash(" ", "_", appSelected)),]
+    files <- tempOutput[tolower(tempOutput$type) == "file", ]
+    files$tableaddress <- sprintf(as.character(files$tableaddress), run_date)
+    prod_path <- paste0(foundationRuns_dbfs_root_path, "/", gsub_underscore_dash(" ", "_", tolower(appSelected)), "/", environment, "/Outputs/", run_date)
+    data <- list()
+    j <- 1
+    for(i in 1:nrow(files)){
+        file_path <- file.path(prod_path, files$tableaddress[i])
+        if(grepl(".csv", file_path)){
+            data[[j]] <- fread(file_path, sep = global_separator)
+            names(data)[j] <- files$output[i]
+        }
+        j <- j + 1
+    }
+    return(data)
+}
+
+
+ #----------------------------------------------------------------------------------#
+ #----------------------------------------------------------------------------------#
+ #------------------------------------ Module --------------------------------------#
+ #----------------------------------------------------------------------------------#
+ #----------------------------------------------------------------------------------#
+
+
+createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
+  ns <- NS(id)
+
+  observe({
+    req(reactiveReportObject$app)
+    appSelected <- reactiveReportObject$app
+    if (!tolower(gsub_underscore_dash(" ", "_", appSelected)) %in% c("am_fees")) {
+      return()
+    }
+
+    showPageSpinner()
+    tryCatch({
+      # Cleanup previous content
+      removeUI(selector = paste0("#", id, "ContentAnalysis"), immediate = TRUE)
+
+      data_list <- reactiveReportObject$reportData
+      if (is.null(data_list)) {
+        hidePageSpinner()
+        return()
+      }
+      if (!is.list(data_list)) {
+        data_list <- list(data_list)
+        names(data_list) <- c("Report")
+      }
+
+      # Build tabs
+      tabs <- Map(function(i) list(id = paste0(id, "-", i, "_", tokenUI), name = names(data_list)[i]), seq_len(length(data_list)))
+
+      ui_root <- tags$div(
+        id = paste0(id, "ContentAnalysis"),
+        class = "row",
+        tags$div(class = "col-12 mb-2",
+          downloadButton(ns(paste0("download_all_data_excel_", tokenUI)), "📦 Download all in Excel", class = "btn btn-primary my-2")
+        ),
+        tags$div(class = "col-12", Generate_dashboard_tabs_table(tabs))
+      )
+
+      insertUI(selector = paste0("#", id, "Content"), ui = ui_root, immediate = TRUE)
+
+      # Populate each tab content
+      for (i in seq_along(data_list)) {
+        local({
+          idx <- i
+          df <- data_list[[idx]]
+          table_name <- names(data_list)[idx]
+
+          tab_id <- paste0(id, "-", idx, "_", tokenUI)
+
+          # Add per-tab controls (download button) above the DT
+          insertUI(
+            selector = paste0("#nav-", tab_id),
+            where = "afterBegin",
+            ui = tags$div(
+              class = "my-3",
+              fluidRow(
+                column(12, class = "d-flex justify-content-between align-items-center mb-2",
+                  downloadButton(outputId = paste0("download_", tab_id, "_", tokenUI), label = "📥 Download CSV", class = "btn btn-sm btn-success")
+                )
+              )
+            )
+          )
+
+          # Table (target id inserted by Generate_dashboard_tabs_table)
+          output[[paste0("td_dashboard_", tab_id)]] <- renderDT({
+            num_cols <- names(df)[sapply(df, is.numeric)]
+            df_clean <- df
+            show_total <- grepl("calcul_report|kpi_axa_im_report", gsub_underscore_dash(" ", "_", tolower(table_name)))
+            if (show_total && length(num_cols) > 0) {
+              total_row <- df_clean[, lapply(.SD, function(x) if (is.numeric(x)) sum(x, na.rm = TRUE) else NA), .SDcols = num_cols]
+              total_row[, setdiff(names(df_clean), num_cols) := lapply(setdiff(names(df_clean), num_cols), function(x) "Total")]
+              df_clean <- rbind(df_clean, total_row, fill = TRUE)
+            }
+            dt <- datatable(
+              df_clean,
+              rownames = FALSE,
+              options = list(paging = FALSE, dom = 'tip', autoWidth = TRUE, ordering = TRUE),
+              filter = "top"
+            )
+            for (col in num_cols) {
+              dt <- DT::formatCurrency(dt, columns = col, currency = "", digits = 0, interval = 3, mark = " ")
+            }
+            if (show_total) {
+              dt <- DT::formatStyle(dt, columns = 0, target = "row", rows = nrow(df_clean), fontWeight = "bold", backgroundColor = "#f9f9f9")
+            }
+            dt
+          })
+
+          # Downloads
+          output[[paste0("download_", tab_id, "_", tokenUI)]] <- downloadHandler(
+            filename = function() paste0(gsub("[\\/:*?\"<>|]", "_", table_name), ".csv"),
+            content = function(file) {
+              fwrite(df, file, row.names = FALSE, sep = user_separator(), quote = TRUE)
+            }
+          )
+        })
+      }
+
+      # Download all to Excel
+      output[[ns(paste0("download_all_data_excel_", tokenUI))]] <- downloadHandler(
+        filename = function() paste0("AMFees_Report_", Sys.Date(), ".xlsx"),
+        content = function(file) {
+          openxlsx::write.xlsx(data_list, file)
+        }
+      )
+
+      hidePageSpinner()
+      runjs("$('a[href=\"#historyAnalysis\"]').click();")
+    }, error = function(e) {
+      print(e)
+      hidePageSpinner()
+      runjs("toastr.error('Error.. please retry again','',toastr.options.timeOut='500');")
+    })
+  })
+}
+
+
+
+
+
+launch_dashboard_server <- function(appSelected, reactiveReportObject, type = "currentRun") {
+    if(gsub_underscore_dash(" ", "_", tolower(appSelected)) %in% c("ip_local")) {
+        createIPLocalMainUI(type, reactiveReportObject, user = isolate(user_email()), tokenUI = generate_token(5))
+    }
+    if(gsub_underscore_dash(" ", "_", tolower(appSelected)) %in% c("rf_liquidity")) {
+        createRFLiquidityUI(type, reactiveReportObject, user = isolate(user_email()), tokenUI = generate_token(5))
+    }
+    if(gsub_underscore_dash(" ", "_", tolower(appSelected)) %in% c("am_fees")) {
+      createAMFeesUI(type, reactiveReportObject, tokenUI = generate_token(5))
+    }
+}

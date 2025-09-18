@@ -421,14 +421,7 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
         data_list <- config$dataTransform(data_list)
       }
 
-      # Determine table types
-      typesOfTable <- if (length(config$tableTypes) == 1) {
-        rep(config$tableTypes, length(data_list))
-      } else if (is.function(config$tableTypes)) {
-        config$tableTypes(data_list)
-      } else {
-        config$tableTypes
-      }
+      # Note: typesOfTable will be determined per table during rendering
 
       # Build tabs
       tabs <- Map(function(i) list(id = paste0(id, "-", i, "_", tokenUI), name = names(data_list)[i]), seq_len(length(data_list)))
@@ -441,7 +434,7 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
             downloadButton(ns(paste0("download_all_data_excel_", tokenUI)), config$excelDownloadLabel, class = "btn btn-primary my-2")
           )
         },
-        tags$div(class = "col-12", Generate_dashboard_tabs_table(tabs, typesOfTable))
+        tags$div(class = "col-12", Generate_dashboard_tabs_table(tabs))
       )
 
       insertUI(selector = paste0("#", id, "Content"), ui = ui_root, immediate = TRUE)

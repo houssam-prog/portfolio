@@ -57,32 +57,30 @@ createGenericBarPlot <- function(xVar, yVar, colorVar = NULL, title = "Bar Plot"
                                 textVar = NULL, hoverinfo = "text+y", 
                                 orientation = "v", barmode = "group") {
   function(df, tab_id, tokenUI) {
-    renderPlotly({
-      req(df[[xVar]], df[[yVar]])
-      
-      p <- plot_ly(df, 
-                   x = if(orientation == "v") as.formula(paste0("~", xVar)) else as.formula(paste0("~", yVar)),
-                   y = if(orientation == "v") as.formula(paste0("~", yVar)) else as.formula(paste0("~", xVar)),
-                   type = "bar",
-                   orientation = orientation)
-      
-      if (!is.null(colorVar) && colorVar %in% names(df)) {
-        p <- p %>% add_trace(color = as.formula(paste0("~", colorVar)))
-      }
-      
-      if (!is.null(textVar) && textVar %in% names(df)) {
-        p <- p %>% add_trace(text = as.formula(paste0("~", textVar)), hoverinfo = hoverinfo)
-      }
-      
-      p %>% layout(
-        title = title,
-        xaxis = list(title = if(orientation == "v") xTitle else yTitle),
-        yaxis = list(title = if(orientation == "v") yTitle else xTitle),
-        barmode = barmode,
-        paper_bgcolor = 'rgba(0,0,0,0)',
-        plot_bgcolor = 'rgba(0,0,0,0)'
-      )
-    })
+    req(df[[xVar]], df[[yVar]])
+    
+    p <- plot_ly(df, 
+                 x = if(orientation == "v") as.formula(paste0("~", xVar)) else as.formula(paste0("~", yVar)),
+                 y = if(orientation == "v") as.formula(paste0("~", yVar)) else as.formula(paste0("~", xVar)),
+                 type = "bar",
+                 orientation = orientation)
+    
+    if (!is.null(colorVar) && colorVar %in% names(df)) {
+      p <- p %>% add_trace(color = as.formula(paste0("~", colorVar)))
+    }
+    
+    if (!is.null(textVar) && textVar %in% names(df)) {
+      p <- p %>% add_trace(text = as.formula(paste0("~", textVar)), hoverinfo = hoverinfo)
+    }
+    
+    p %>% layout(
+      title = title,
+      xaxis = list(title = if(orientation == "v") xTitle else yTitle),
+      yaxis = list(title = if(orientation == "v") yTitle else xTitle),
+      barmode = barmode,
+      paper_bgcolor = 'rgba(0,0,0,0)',
+      plot_bgcolor = 'rgba(0,0,0,0)'
+    )
   }
 }
 
@@ -91,18 +89,16 @@ createGenericPiePlot <- function(labelsVar, valuesVar, title = "Pie Chart",
                                 height = 400, textinfo = "label+percent", 
                                 hoverinfo = "label+value+percent", showlegend = TRUE) {
   function(df, tab_id, tokenUI) {
-    renderPlotly({
-      req(df[[labelsVar]], df[[valuesVar]])
-      plot_ly(df,
-        labels = as.formula(paste0("~", labelsVar)),
-        values = as.formula(paste0("~", valuesVar)),
-        type = "pie",
-        textinfo = textinfo,
-        hoverinfo = hoverinfo
-      ) %>%
-        layout(title = title, showlegend = showlegend) %>%
-        layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
-    })
+    req(df[[labelsVar]], df[[valuesVar]])
+    plot_ly(df,
+      labels = as.formula(paste0("~", labelsVar)),
+      values = as.formula(paste0("~", valuesVar)),
+      type = "pie",
+      textinfo = textinfo,
+      hoverinfo = hoverinfo
+    ) %>%
+      layout(title = title, showlegend = showlegend) %>%
+      layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
   }
 }
 
@@ -112,40 +108,38 @@ createGenericWaterfallPlot <- function(labelVar, valueVar, title = "Waterfall Ch
                                       valueTransform = function(x) x, 
                                       addTotal = TRUE, totalLabel = "Total") {
   function(df, tab_id, tokenUI) {
-    renderPlotly({
-      req(df[[labelVar]], df[[valueVar]])
-      
-      df_agg <- df %>%
-        dplyr::group_by(!!sym(labelVar)) %>%
-        dplyr::summarise(Value = sum(!!sym(valueVar), na.rm = TRUE)) %>%
-        dplyr::mutate(Value = valueTransform(Value)) %>%
-        dplyr::arrange(desc(abs(Value))) %>%
-        dplyr::mutate(
-          prefix = paste0(LETTERS[seq_along(!!sym(labelVar))], ". "),
-          label = paste0(prefix, !!sym(labelVar)),
-          measure = "relative",
-          text = format(Value, big.mark = " ")
-        )
-      
-      if (addTotal) {
-        total <- data.frame(
-          label = totalLabel,
-          Value = sum(df_agg$Value, na.rm = TRUE),
-          measure = "total",
-          text = format(sum(df_agg$Value, na.rm = TRUE), big.mark = " ")
-        )
-        df_waterfall <- dplyr::bind_rows(df_agg[, c("label", "Value", "measure", "text")], total)
-      } else {
-        df_waterfall <- df_agg[, c("label", "Value", "measure", "text")]
-      }
-      
-      plot_ly(df_waterfall, type = "waterfall", x = ~label, y = ~Value, text = ~text,
-              measure = ~measure, textposition = "outside",
-              connector = list(line = list(color = "rgba(63, 63, 63, 0.7)"))) %>%
-        layout(title = title, xaxis = list(title = xTitle, tickangle = -45),
-               yaxis = list(title = yTitle), paper_bgcolor = 'rgba(0,0,0,0)',
-               plot_bgcolor = 'rgba(0,0,0,0)')
-    })
+    req(df[[labelVar]], df[[valueVar]])
+    
+    df_agg <- df %>%
+      dplyr::group_by(!!sym(labelVar)) %>%
+      dplyr::summarise(Value = sum(!!sym(valueVar), na.rm = TRUE)) %>%
+      dplyr::mutate(Value = valueTransform(Value)) %>%
+      dplyr::arrange(desc(abs(Value))) %>%
+      dplyr::mutate(
+        prefix = paste0(LETTERS[seq_along(!!sym(labelVar))], ". "),
+        label = paste0(prefix, !!sym(labelVar)),
+        measure = "relative",
+        text = format(Value, big.mark = " ")
+      )
+    
+    if (addTotal) {
+      total <- data.frame(
+        label = totalLabel,
+        Value = sum(df_agg$Value, na.rm = TRUE),
+        measure = "total",
+        text = format(sum(df_agg$Value, na.rm = TRUE), big.mark = " ")
+      )
+      df_waterfall <- dplyr::bind_rows(df_agg[, c("label", "Value", "measure", "text")], total)
+    } else {
+      df_waterfall <- df_agg[, c("label", "Value", "measure", "text")]
+    }
+    
+    plot_ly(df_waterfall, type = "waterfall", x = ~label, y = ~Value, text = ~text,
+            measure = ~measure, textposition = "outside",
+            connector = list(line = list(color = "rgba(63, 63, 63, 0.7)"))) %>%
+      layout(title = title, xaxis = list(title = xTitle, tickangle = -45),
+             yaxis = list(title = yTitle), paper_bgcolor = 'rgba(0,0,0,0)',
+             plot_bgcolor = 'rgba(0,0,0,0)')
   }
 }
 
@@ -488,16 +482,22 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
                 }
                 insertUI(selector = paste0("#", paste0("plots_", tab_id)), where = "beforeEnd", ui = ui_content)
                 
-                # Add plot logic - assign the renderPlotly functions directly (like in original code)
+                # Add plot logic - create renderPlotly expressions directly (like in original code)
                 for (plot_name in names(plot_config$plots)) {
                   plot_spec <- plot_config$plots[[plot_name]]
                   plot_output_id <- paste0(plot_name, "_", tab_id, "_", tokenUI)
                   
                   if (is.function(plot_spec)) {
-                    # plot_spec is a function that returns renderPlotly(), call it with the data
-                    output[[plot_output_id]] <- plot_spec(df, tab_id, tokenUI)
+                    # Create renderPlotly directly with the plot logic
+                    output[[plot_output_id]] <- renderPlotly({
+                      req(df)
+                      plot_spec(df, tab_id, tokenUI)
+                    })
                   } else if (is.list(plot_spec) && !is.null(plot_spec$renderer)) {
-                    output[[plot_output_id]] <- plot_spec$renderer(df, tab_id, tokenUI)
+                    output[[plot_output_id]] <- renderPlotly({
+                      req(df)
+                      plot_spec$renderer(df, tab_id, tokenUI)
+                    })
                   } else {
                     # If it's a direct renderPlotly object, assign it directly
                     output[[plot_output_id]] <- plot_spec

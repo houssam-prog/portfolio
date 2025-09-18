@@ -1,0 +1,464 @@
+#----------------------------------------------------------------------------------#
+#------------------------- SOLUTION FINALE SIMPLIFIÉE ---------------------------#
+#----------------------------------------------------------------------------------#
+
+#----------------------------------------------------------------------------------#
+#------------------------- Fonctions génériques de plots -------------------------#
+#----------------------------------------------------------------------------------#
+
+#' Create a generic bar plot
+createGenericBarPlot <- function(data, xVar, yVar, colorVar = NULL, title = "", 
+                                xTitle = "", yTitle = "", height = 400, 
+                                orientation = "v", plotOptions = list()) {
+  
+  defaultOptions <- list(
+    paper_bgcolor = 'rgba(0,0,0,0)',
+    plot_bgcolor = 'rgba(0,0,0,0)',
+    showlegend = TRUE,
+    hoverinfo = "text+x+y"
+  )
+  plotOptions <- modifyList(defaultOptions, plotOptions)
+  
+  return(function(df, tab_id, tokenUI) {
+    renderPlotly({
+      req(df[[xVar]], df[[yVar]])
+      
+      plot <- plot_ly(df, x = ~get(xVar), y = ~get(yVar), type = "bar", orientation = orientation)
+      
+      if (!is.null(colorVar) && colorVar %in% names(df)) {
+        plot <- plot %>% add_trace(color = ~get(colorVar))
+      }
+      
+      if (orientation == "v") {
+        plot <- plot %>% add_trace(text = ~scales::percent(get(yVar), accuracy = 0.1), hoverinfo = "text+y")
+      }
+      
+      plot %>% layout(
+        title = title,
+        xaxis = list(title = xTitle),
+        yaxis = list(title = yTitle),
+        paper_bgcolor = plotOptions$paper_bgcolor,
+        plot_bgcolor = plotOptions$plot_bgcolor,
+        showlegend = plotOptions$showlegend
+      )
+    })
+  })
+}
+
+#' Create a generic pie plot
+createGenericPiePlot <- function(data, labelsVar, valuesVar, title = "", height = 400, plotOptions = list()) {
+  defaultOptions <- list(
+    paper_bgcolor = 'rgba(0,0,0,0)',
+    plot_bgcolor = 'rgba(0,0,0,0)',
+    showlegend = TRUE,
+    textinfo = "label+percent",
+    hoverinfo = "label+value+percent"
+  )
+  plotOptions <- modifyList(defaultOptions, plotOptions)
+  
+  return(function(df, tab_id, tokenUI) {
+    renderPlotly({
+      req(df[[labelsVar]], df[[valuesVar]])
+      
+      plot_ly(df, labels = ~get(labelsVar), values = ~abs(get(valuesVar)), type = "pie",
+              textinfo = plotOptions$textinfo, hoverinfo = plotOptions$hoverinfo) %>%
+      layout(title = title, showlegend = plotOptions$showlegend,
+             paper_bgcolor = plotOptions$paper_bgcolor, plot_bgcolor = plotOptions$plot_bgcolor)
+    })
+  })
+}
+
+#' Create a generic waterfall plot
+createGenericWaterfallPlot <- function(data, labelVar, valueVar, title = "", 
+                                      xTitle = "", yTitle = "", height = 400) {
+  return(function(df, tab_id, tokenUI) {
+    renderPlotly({
+      req(df[[labelVar]], df[[valueVar]])
+      
+      df_agg <- df %>%
+        dplyr::group_by(!!sym(labelVar)) %>%
+        dplyr::summarise(!!sym(valueVar) := sum(-!!sym(valueVar), na.rm = TRUE)) %>%
+        dplyr::arrange(desc(abs(!!sym(valueVar)))) %>%
+        dplyr::mutate(
+          prefix = paste0(LETTERS[seq_along(!!sym(labelVar))], ". "),
+          label = paste0(prefix, !!sym(labelVar)),
+          measure = "relative",
+          text = format(!!sym(valueVar), big.mark = " ")
+        )
+      
+      total <- data.frame(
+        label = "Total",
+        !!valueVar := sum(df_agg[[valueVar]], na.rm = TRUE),
+        measure = "total",
+        text = format(sum(df_agg[[valueVar]], na.rm = TRUE), big.mark = " ")
+      )
+      names(total)[2] <- valueVar
+      
+      df_waterfall <- dplyr::bind_rows(df_agg[, c("label", valueVar, "measure", "text")], total)
+      
+      plot_ly(df_waterfall, type = "waterfall", x = ~label, y = ~get(valueVar),
+              text = ~text, measure = ~measure, textposition = "outside",
+              connector = list(line = list(color = "rgba(63, 63, 63, 0.7)"))) %>%
+      layout(title = title, xaxis = list(title = xTitle, tickangle = -45),
+             yaxis = list(title = yTitle), paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
+    })
+  })
+}
+
+#' Create a custom plot with data processing
+createCustomPlot <- function(plotType, dataProcessing = NULL, plotConfig = list()) {
+  return(function(df, tab_id, tokenUI) {
+    renderPlotly({
+      if (!is.null(dataProcessing)) {
+        df <- dataProcessing(df)
+      }
+      
+      switch(plotType,
+        "bar" = createGenericBarPlot(data = df, xVar = plotConfig$xVar, yVar = plotConfig$yVar,
+                                   colorVar = plotConfig$colorVar, title = plotConfig$title,
+                                   xTitle = plotConfig$xTitle, yTitle = plotConfig$yTitle,
+                                   height = plotConfig$height, orientation = plotConfig$orientation)(df, tab_id, tokenUI),
+        "pie" = createGenericPiePlot(data = df, labelsVar = plotConfig$labelsVar,
+                                   valuesVar = plotConfig$valuesVar, title = plotConfig$title,
+                                   height = plotConfig$height)(df, tab_id, tokenUI),
+        "waterfall" = createGenericWaterfallPlot(data = df, labelVar = plotConfig$labelVar,
+                                               valueVar = plotConfig$valueVar, title = plotConfig$title,
+                                               xTitle = plotConfig$xTitle, yTitle = plotConfig$yTitle,
+                                               height = plotConfig$height)(df, tab_id, tokenUI)
+      )
+    })
+  })
+}
+
+#----------------------------------------------------------------------------------#
+#------------------------- Fonction générique de dashboard -----------------------#
+#----------------------------------------------------------------------------------#
+
+#' Create a generic dashboard UI module
+createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "", tokenUI = "", config = list()) {
+  ns <- NS(id)
+  
+  defaultConfig <- list(
+    appName = appName,
+    reportName = paste0(toupper(gsub("_", "", appName)), "_Report"),
+    showExcelDownload = TRUE,
+    excelDownloadLabel = "📦 Download all in Excel",
+    csvDownloadLabel = "📥 Download CSV",
+    showTotals = TRUE,
+    totalPatterns = c("intermediate_report", "weighted", "stress_impact", "calcul_report", "kpi_axa_im_report"),
+    percentageCols = c("lrm_weight", "Impact Weighted Resource"),
+    tableOptions = list(paging = FALSE, dom = 'tip', autoWidth = TRUE, ordering = TRUE),
+    filterPosition = "top",
+    plots = list(),
+    customControls = list(),
+    errorMessage = "Error.. please retry again",
+    successRedirect = "#historyAnalysis"
+  )
+  
+  config <- modifyList(defaultConfig, config)
+  
+  observe({
+    req(reactiveReportObject$app)
+    appSelected <- reactiveReportObject$app
+    if (!tolower(gsub_underscore_dash(" ", "_", appSelected)) %in% c(config$appName)) {
+      return()
+    }
+    
+    showPageSpinner()
+    tryCatch({
+      removeUI(selector = paste0("#", id, "ContentAnalysis"), immediate = TRUE)
+      
+      data_list <- reactiveReportObject$reportData
+      if (is.null(data_list)) {
+        hidePageSpinner()
+        return()
+      }
+      if (!is.list(data_list)) {
+        data_list <- list(data_list)
+        names(data_list) <- c("Report")
+      }
+      
+      if (!is.null(config$dataFilter)) {
+        data_list <- config$dataFilter(data_list)
+        if (length(data_list) == 0) {
+          hidePageSpinner()
+          runjs("toastr.error('No data found','',toastr.options.timeOut='500');")
+          return()
+        }
+      }
+      
+      if (!is.null(config$dataTransform)) {
+        data_list <- config$dataTransform(data_list)
+      }
+      
+      typesOfTable <- if (length(config$tableTypes) == 1) {
+        rep(config$tableTypes, length(data_list))
+      } else if (is.function(config$tableTypes)) {
+        config$tableTypes(data_list)
+      } else {
+        config$tableTypes
+      }
+      
+      tabs <- Map(function(i) list(id = paste0(id, "-", i, "_", tokenUI), name = names(data_list)[i]), seq_len(length(data_list)))
+      
+      ui_root <- tags$div(
+        id = paste0(id, "ContentAnalysis"),
+        class = "row",
+        if (config$showExcelDownload) {
+          tags$div(class = "col-12 mb-2",
+            downloadButton(ns(paste0("download_all_data_excel_", tokenUI)), config$excelDownloadLabel, class = "btn btn-primary my-2")
+          )
+        },
+        tags$div(class = "col-12", Generate_dashboard_tabs_table(tabs, typesOfTable))
+      )
+      
+      insertUI(selector = paste0("#", id, "Content"), ui = ui_root, immediate = TRUE)
+      
+      for (i in seq_along(data_list)) {
+        local({
+          boolDfToShow <- TRUE
+          idx <- i
+          df <- data_list[[idx]]
+          table_name <- names(data_list)[idx]
+          tab_id <- paste0(id, "-", idx, "_", tokenUI)
+          
+          insertUI(
+            selector = paste0("#nav-", tab_id),
+            where = "afterBegin",
+            ui = tags$div(
+              class = "my-3",
+              fluidRow(
+                column(12, class = "d-flex justify-content-between align-items-center mb-2",
+                  downloadButton(outputId = paste0("download_", tab_id, "_", tokenUI), label = config$csvDownloadLabel, class = "btn btn-sm btn-success")
+                )
+              ),
+              tags$div(id = paste0("plots_", tab_id))
+            )
+          )
+          
+          if (length(config$customControls) > 0) {
+            for (control in config$customControls) {
+              if (grepl(control$pattern, gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+                insertUI(selector = paste0("#", paste0("plots_", tab_id)), where = "beforeEnd", ui = control$ui)
+                if (!is.null(control$logic)) {
+                  control$logic(df, table_name, tab_id, tokenUI)
+                }
+              }
+            }
+          }
+          
+          if (length(config$plots) > 0) {
+            for (plot_config in config$plots) {
+              if (grepl(plot_config$pattern, gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+                insertUI(selector = paste0("#", paste0("plots_", tab_id)), where = "beforeEnd", ui = plot_config$ui)
+                
+                for (plot_name in names(plot_config$plots)) {
+                  plot_spec <- plot_config$plots[[plot_name]]
+                  if (is.function(plot_spec)) {
+                    output[[paste0(plot_name, "_", tab_id, "_", tokenUI)]] <- plot_spec(df, tab_id, tokenUI)
+                  } else if (is.list(plot_spec) && !is.null(plot_spec$renderer)) {
+                    output[[paste0(plot_name, "_", tab_id, "_", tokenUI)]] <- plot_spec$renderer(df, tab_id, tokenUI)
+                  } else {
+                    output[[paste0(plot_name, "_", tab_id, "_", tokenUI)]] <- plot_spec
+                  }
+                }
+              }
+            }
+          }
+          
+          if (grepl("interface_alloc", gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+            boolDfToShow <- FALSE
+          }
+          
+          if (boolDfToShow) {
+            output[[paste0("td_dashboard_", tab_id)]] <- renderDT({
+              num_cols <- names(df)[sapply(df, is.numeric)]
+              df_clean <- df
+              
+              if (config$showTotals && length(num_cols) > 0) {
+                show_total <- any(sapply(config$totalPatterns, function(pattern) {
+                  grepl(pattern, gsub_underscore_dash(" ", "_", tolower(table_name)))
+                }))
+                
+                if (show_total) {
+                  total_row <- df_clean[, lapply(.SD, function(x) if (is.numeric(x)) sum(x, na.rm = TRUE) else NA), .SDcols = num_cols]
+                  total_row[, setdiff(names(df_clean), num_cols) := lapply(setdiff(names(df_clean), num_cols), function(x) "Total")]
+                  df_clean <- rbind(df_clean, total_row, fill = TRUE)
+                }
+              }
+              
+              dt <- datatable(df_clean, rownames = FALSE, options = config$tableOptions, filter = config$filterPosition)
+              
+              for (col in num_cols) {
+                if (col %in% config$percentageCols) {
+                  dt <- DT::formatPercentage(dt, columns = col, digits = 2)
+                } else {
+                  dt <- DT::formatCurrency(dt, columns = col, currency = "", digits = 0, interval = 3, mark = " ")
+                }
+              }
+              
+              if (config$showTotals && nrow(df_clean) > nrow(df)) {
+                dt <- DT::formatStyle(dt, columns = 0, target = "row", rows = nrow(df_clean), fontWeight = "bold", backgroundColor = "#f9f9f9")
+              }
+              
+              dt
+            })
+          }
+          
+          output[[paste0("download_", tab_id, "_", tokenUI)]] <- downloadHandler(
+            filename = function() paste0(gsub("[\\/:*?\"<>|]", "_", table_name), ".csv"),
+            content = function(file) {
+              fwrite(df, file, row.names = FALSE, sep = user_separator(), quote = TRUE)
+            }
+          )
+        })
+      }
+      
+      if (config$showExcelDownload) {
+        output[[ns(paste0("download_all_data_excel_", tokenUI))]] <- downloadHandler(
+          filename = function() paste0(config$reportName, "_", Sys.Date(), ".xlsx"),
+          content = function(file) {
+            openxlsx::write.xlsx(data_list, file)
+          }
+        )
+      }
+      
+      hidePageSpinner()
+      runjs(paste0("$('a[href=\"", config$successRedirect, "\"]').click();"))
+    }, error = function(e) {
+      print(e)
+      hidePageSpinner()
+      runjs(paste0("toastr.error('", config$errorMessage, "','',toastr.options.timeOut='500');"))
+    })
+  })
+}
+
+#----------------------------------------------------------------------------------#
+#------------------------- Fonctions wrapper de compatibilité -------------------#
+#----------------------------------------------------------------------------------#
+
+#' Create RFLiquidity UI using the generic function
+createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
+  config <- list(
+    appName = "rf_liquidity",
+    reportName = "RiskFrameworkLiquidity_Report",
+    plots = list(
+      list(
+        pattern = "intermediate_report",
+        ui = fluidRow(
+          column(12, class = "col-12 col-md-4", plotlyOutput(outputId = "plot_impact", height = "550px")),
+          column(12, class = "col-12 col-md-4", plotlyOutput(outputId = "plot_waterfall", height = "550px")),
+          column(12, class = "col-12 col-md-4", plotlyOutput(outputId = "plot_pie", height = "550px"))
+        ),
+        plots = list(
+          plot_impact = createGenericBarPlot(data = NULL, xVar = "lrm_classification", yVar = "Ressources_before_haircut",
+                                           colorVar = "lrm_classification", title = "Resources before haircut",
+                                           xTitle = "", yTitle = "Impact (%)", height = 550),
+          plot_waterfall = createGenericWaterfallPlot(data = NULL, labelVar = "lrm_classification", valueVar = "Financial_Impact",
+                                                    title = "Financial Impact", xTitle = "", yTitle = "Financial Impact (€)", height = 550),
+          plot_pie = createGenericPiePlot(data = NULL, labelsVar = "lrm_classification", valuesVar = "Weighted_resources_after_encumbrance",
+                                        title = "Weighted Resources After Encumbrance", height = 550)
+        )
+      ),
+      list(
+        pattern = "stress_impact_report",
+        ui = fluidRow(column(12, class = "col-12 col-md-4 offset-md-4", plotlyOutput(outputId = "plot_pie", height = "550px"))),
+        plots = list(
+          plot_pie = createGenericPiePlot(data = NULL, labelsVar = "risk_module", valuesVar = "external_figures",
+                                        title = "External Figures", height = 550)
+        )
+      ),
+      list(
+        pattern = "liquidity_report",
+        ui = fluidRow(column(12, plotlyOutput(outputId = "plot_liquidity", height = "200px"))),
+        plots = list(
+          plot_liquidity = createCustomPlot(
+            plotType = "custom",
+            plotConfig = list(
+              customRenderer = function(df, tab_id, tokenUI) {
+                renderPlotly({
+                  df_vals <- df %>%
+                    dplyr::filter(get(names(df)[1]) %in% c("Excess liquidity", "Stress impact", "Available weighted resources")) %>%
+                    tidyr::pivot_wider(names_from = names(df)[1], values_from = `New methodology`) %>%
+                    dplyr::mutate(stress = `Stress impact`, excess = `Excess liquidity`)
+                  
+                  plot_ly(type = "bar", orientation = "h") %>%
+                    add_trace(x = ~df_vals$`Stress impact`, y = "Available weighted resources", name = "Stress impact",
+                             marker = list(color = 'rgba(255, 99, 71, 0.8)'), text = ~format(df_vals$`Stress impact`, big.mark = " "), hoverinfo = "text+x") %>%
+                    add_trace(x = ~df_vals$`Excess liquidity`, y = "Available weighted resources", name = "Excess liquidity",
+                             marker = list(color = 'rgba(0, 200, 0, 0.7)'), text = ~format(df_vals$`Excess liquidity`, big.mark = " "), hoverinfo = "text+x") %>%
+                    layout(barmode = "stack", title = "", xaxis = list(title = "Amount (mEUR)", tickformat = ",.0f"),
+                           yaxis = list(title = ""), paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)', showlegend = TRUE)
+                })
+              }
+            )
+          )
+        )
+      )
+    )
+  )
+  
+  createGenericDashboardUI(id, reactiveReportObject, "rf_liquidity", user, tokenUI, config)
+}
+
+#' Create IPLocalMain UI using the generic function
+createIPLocalMainUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
+  config <- list(
+    appName = "ip_local",
+    reportName = "IPLocalMain_Report",
+    dataFilter = function(data_list) {
+      data_list[grepl("interface", gsub_underscore_dash(" ", "_", tolower(names(data_list))))]
+    },
+    tableTypes = function(data_list) {
+      sapply(names(data_list), function(name) {
+        if (grepl("interface_alloc", gsub_underscore_dash(" ", "_", tolower(name)))) "RHandsontable" else "DT"
+      })
+    },
+    customControls = list(
+      list(
+        pattern = "interface_alloc",
+        ui = fluidRow(
+          column(12, class = "col-12 col-md-4", customSelectWithValues(inputId = "selector_portfolios_alloc", label = "Select a portfolio", icon = "briefcase", message = "Select a portfolio", options = c(), labels = c(), multiple = FALSE, disabled = FALSE, selected = NULL)),
+          column(12, class = "col-12 col-md-4", customSelectWithValues(inputId = "selector_source_type_alloc", label = "Select a source type", icon = "briefcase", message = "Select a source type", options = c(), labels = c(), multiple = FALSE, disabled = FALSE, selected = NULL)),
+          column(12, class = "col-12 col-md-4", actionButton(inputId = "action_button_alloc", label = "Generate", class = "btn btn-sm btn-success btn-rounded foundation-btn-primary"))
+        ),
+        logic = function(df, table_name, tab_id, tokenUI) {
+          # Logique RHandsontable complexe (simplifiée ici)
+          observeEvent(input$action_button_alloc, {
+            req(input$selector_portfolios_alloc, input$selector_source_type_alloc)
+            # Logique de traitement des données et affichage RHandsontable
+          })
+        }
+      )
+    )
+  )
+  
+  createGenericDashboardUI(id, reactiveReportObject, "ip_local", user, tokenUI, config)
+}
+
+#' Create AMFees UI using the generic function
+createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
+  config <- list(
+    appName = "am_fees",
+    reportName = "AMFees_Report",
+    totalPatterns = c("calcul_report", "kpi_axa_im_report")
+  )
+  
+  createGenericDashboardUI(id, reactiveReportObject, "am_fees", user, tokenUI, config)
+}
+
+#----------------------------------------------------------------------------------#
+#------------------------- Fonction de lancement --------------------------------#
+#----------------------------------------------------------------------------------#
+
+launch_dashboard_server <- function(appSelected, reactiveReportObject, type = "currentRun") {
+  if(gsub_underscore_dash(" ", "_", tolower(appSelected)) %in% c("ip_local")) {
+    createIPLocalMainUI(type, reactiveReportObject, user = isolate(user_email()), tokenUI = generate_token(5))
+  }
+  if(gsub_underscore_dash(" ", "_", tolower(appSelected)) %in% c("rf_liquidity")) {
+    createRFLiquidityUI(type, reactiveReportObject, user = isolate(user_email()), tokenUI = generate_token(5))
+  }
+  if(gsub_underscore_dash(" ", "_", tolower(appSelected)) %in% c("am_fees")) {
+    createAMFeesUI(type, reactiveReportObject, user = isolate(user_email()), tokenUI = generate_token(5))
+  }
+}

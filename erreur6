@@ -384,42 +384,78 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
   # Merge with provided config
   config <- modifyList(defaultConfig, config)
   
-  observe({
+  # Create plot outputs dynamically when data changes
+  observeEvent(reactiveData(), {
+    req(reactiveData())
+    data_list <- reactiveData()
+    
+    if (length(config$plots) > 0) {
+      for (i in seq_along(data_list)) {
+        table_name <- names(data_list)[i]
+        df <- data_list[[i]]
+        tab_id <- paste0(id, "-", i, "_", tokenUI)
+        
+        for (plot_config in config$plots) {
+          if (grepl(plot_config$pattern, gsub_underscore_dash(" ", "_", tolower(table_name)))) {
+            for (plot_name in names(plot_config$plots)) {
+              plot_spec <- plot_config$plots[[plot_name]]
+              plot_output_id <- paste0(plot_name, "_", tab_id, "_", tokenUI)
+              
+              if (is.function(plot_spec)) {
+                output[[plot_output_id]] <- plot_spec(df, tab_id, tokenUI)
+              } else if (is.list(plot_spec) && !is.null(plot_spec$renderer)) {
+                output[[plot_output_id]] <- plot_spec$renderer(df, tab_id, tokenUI)
+              } else {
+                output[[plot_output_id]] <- plot_spec
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+  
+  # Create reactive data for plots
+  reactiveData <- reactive({
     req(reactiveReportObject$app)
     appSelected <- reactiveReportObject$app
     if (!tolower(gsub_underscore_dash(" ", "_", appSelected)) %in% c(config$appName)) {
-      return()
+      return(NULL)
+    }
+    
+    data_list <- reactiveReportObject$reportData
+    if (is.null(data_list)) {
+      return(NULL)
+    }
+    if (!is.list(data_list)) {
+      data_list <- list(data_list)
+      names(data_list) <- c("Report")
     }
 
+    # Apply data filter if provided
+    if (!is.null(config$dataFilter)) {
+      data_list <- config$dataFilter(data_list)
+      if (length(data_list) == 0) {
+        return(NULL)
+      }
+    }
+
+    # Apply data transformation if provided
+    if (!is.null(config$dataTransform)) {
+      data_list <- config$dataTransform(data_list)
+    }
+    
+    return(data_list)
+  })
+
+  observe({
+    req(reactiveData())
+    data_list <- reactiveData()
+    
     showPageSpinner()
     tryCatch({
       # Cleanup previous content
       removeUI(selector = paste0("#", id, "ContentAnalysis"), immediate = TRUE)
-
-      data_list <- reactiveReportObject$reportData
-      if (is.null(data_list)) {
-        hidePageSpinner()
-        return()
-      }
-      if (!is.list(data_list)) {
-        data_list <- list(data_list)
-        names(data_list) <- c("Report")
-      }
-
-      # Apply data filter if provided
-      if (!is.null(config$dataFilter)) {
-        data_list <- config$dataFilter(data_list)
-        if (length(data_list) == 0) {
-          hidePageSpinner()
-          runjs("toastr.error('No data found','',toastr.options.timeOut='500');")
-          return()
-        }
-      }
-
-      # Apply data transformation if provided
-      if (!is.null(config$dataTransform)) {
-        data_list <- config$dataTransform(data_list)
-      }
 
       # Note: typesOfTable will be determined per table during rendering
 
@@ -486,22 +522,6 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
                   plot_config$ui
                 }
                 insertUI(selector = paste0("#", paste0("plots_", tab_id)), where = "beforeEnd", ui = ui_content)
-                
-                # Add plot logic - assign the renderPlotly functions directly
-                for (plot_name in names(plot_config$plots)) {
-                  plot_spec <- plot_config$plots[[plot_name]]
-                  plot_output_id <- paste0(plot_name, "_", tab_id, "_", tokenUI)
-                  
-                  if (is.function(plot_spec)) {
-                    # plot_spec is a function that returns renderPlotly(), call it with the data
-                    output[[plot_output_id]] <- plot_spec(df, tab_id, tokenUI)
-                  } else if (is.list(plot_spec) && !is.null(plot_spec$renderer)) {
-                    output[[plot_output_id]] <- plot_spec$renderer(df, tab_id, tokenUI)
-                  } else {
-                    # If it's a direct renderPlotly object, assign it directly
-                    output[[plot_output_id]] <- plot_spec
-                  }
-                }
               }
             }
           }

@@ -469,26 +469,38 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
                 }
                 insertUI(selector = paste0("#", paste0("plots_", tab_id)), where = "beforeEnd", ui = ui_content)
                 
-                # Add plot logic
+                # Add plot logic - Execute directly in observe context (like original code)
                 for (plot_name in names(plot_config$plots)) {
                   plot_spec <- plot_config$plots[[plot_name]]
-                  if (is.function(plot_spec)) {
-                    # Check if it's a custom function (takes 3 params) or generic function (takes 1 param)
-                    plot_params <- formals(plot_spec)
-                    if (length(plot_params) >= 3) {
-                      # Custom function that returns renderPlotly (like the original code)
-                      output[[paste0(plot_name, "_", tab_id, "_", tokenUI)]] <- plot_spec(df, tab_id, tokenUI)
+                  
+                  # Execute the plot logic directly in the current environment (like original code)
+                  local({
+                    current_plot_name <- plot_name
+                    current_plot_spec <- plot_spec
+                    current_df <- df
+                    current_tab_id <- tab_id
+                    current_tokenUI <- tokenUI
+                    
+                    if (is.function(current_plot_spec)) {
+                      # Check if it's a custom function (takes 3 params) or generic function (takes 1 param)
+                      plot_params <- formals(current_plot_spec)
+                      if (length(plot_params) >= 3) {
+                        # Custom function that returns renderPlotly - execute directly
+                        output[[paste0(current_plot_name, "_", current_tab_id, "_", current_tokenUI)]] <- 
+                          current_plot_spec(current_df, current_tab_id, current_tokenUI)
+                      } else {
+                        # Generic function that returns a plotly object
+                        output[[paste0(current_plot_name, "_", current_tab_id, "_", current_tokenUI)]] <- renderPlotly({
+                          current_plot_spec(current_df)
+                        })
+                      }
+                    } else if (is.list(current_plot_spec) && !is.null(current_plot_spec$renderer)) {
+                      output[[paste0(current_plot_name, "_", current_tab_id, "_", current_tokenUI)]] <- 
+                        current_plot_spec$renderer(current_df, current_tab_id, current_tokenUI)
                     } else {
-                      # Generic function that returns a plotly object, wrap in renderPlotly
-                      output[[paste0(plot_name, "_", tab_id, "_", tokenUI)]] <- renderPlotly({
-                        plot_spec(df)
-                      })
+                      output[[paste0(current_plot_name, "_", current_tab_id, "_", current_tokenUI)]] <- current_plot_spec
                     }
-                  } else if (is.list(plot_spec) && !is.null(plot_spec$renderer)) {
-                    output[[paste0(plot_name, "_", tab_id, "_", tokenUI)]] <- plot_spec$renderer(df, tab_id, tokenUI)
-                  } else {
-                    output[[paste0(plot_name, "_", tab_id, "_", tokenUI)]] <- plot_spec
-                  }
+                  })
                 }
               }
             }

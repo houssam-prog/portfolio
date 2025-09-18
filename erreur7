@@ -51,269 +51,269 @@ process_dashboard_am_fees_report <- function(params) {
 #------------------------- FONCTIONS GÉNÉRIQUES DE PLOTS -------------------------#
 #----------------------------------------------------------------------------------#
 
-#' Generic bar plot function - Returns plotly object only
-createGenericBarPlot <- function(xVar, yVar, colorVar = NULL, title = "Bar Plot", 
-                                xTitle = "", yTitle = "", height = 400, 
-                                textVar = NULL, hoverinfo = "text+y", 
-                                orientation = "v", barmode = "group") {
-  function(df) {
-    req(df[[xVar]], df[[yVar]])
-    
-    p <- plot_ly(df, 
-                 x = if(orientation == "v") as.formula(paste0("~", xVar)) else as.formula(paste0("~", yVar)),
-                 y = if(orientation == "v") as.formula(paste0("~", yVar)) else as.formula(paste0("~", xVar)),
-                 type = "bar",
-                 orientation = orientation)
-    
-    if (!is.null(colorVar) && colorVar %in% names(df)) {
-      p <- p %>% add_trace(color = as.formula(paste0("~", colorVar)))
-    }
-    
-    if (!is.null(textVar) && textVar %in% names(df)) {
-      p <- p %>% add_trace(text = as.formula(paste0("~", textVar)), hoverinfo = hoverinfo)
-    }
-    
-    p %>% layout(
-      title = title,
-      xaxis = list(title = if(orientation == "v") xTitle else yTitle),
-      yaxis = list(title = if(orientation == "v") yTitle else xTitle),
-      barmode = barmode,
-      paper_bgcolor = 'rgba(0,0,0,0)',
-      plot_bgcolor = 'rgba(0,0,0,0)'
-    )
+#' Fonction générique pour créer des plots intelligents basés sur les données
+#' @param df Data frame à analyser
+#' @param plot_type Type de plot ("bar", "pie", "scatter", "histogram", "box", "auto")
+#' @param x_col Colonne pour l'axe X
+#' @param y_col Colonne pour l'axe Y
+#' @param color_col Colonne pour le regroupement/couleur
+#' @param title Titre du graphique
+#' @return Objet plotly
+createGenericPlot <- function(df, plot_type = "auto", x_col = NULL, y_col = NULL, 
+                              color_col = NULL, title = NULL) {
+  
+  # Auto-détection des colonnes si non spécifiées
+  if (is.null(color_col) && "lrm_classification" %in% names(df)) {
+    color_col <- "lrm_classification"
   }
-}
-
-#' Generic pie plot function - Returns plotly object only
-createGenericPiePlot <- function(labelsVar, valuesVar, title = "Pie Chart", 
-                                height = 400, textinfo = "label+percent", 
-                                hoverinfo = "label+value+percent", showlegend = TRUE) {
-  function(df) {
-    req(df[[labelsVar]], df[[valuesVar]])
-    plot_ly(df,
-      labels = as.formula(paste0("~", labelsVar)),
-      values = as.formula(paste0("~", valuesVar)),
-      type = "pie",
-      textinfo = textinfo,
-      hoverinfo = hoverinfo
-    ) %>%
-      layout(title = title, showlegend = showlegend) %>%
-      layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
+  
+  numeric_cols <- names(df)[sapply(df, is.numeric)]
+  
+  if (is.null(y_col) && length(numeric_cols) > 0) {
+    y_col <- numeric_cols[1]
   }
-}
-
-#' Generic waterfall plot function - Returns plotly object only
-createGenericWaterfallPlot <- function(labelVar, valueVar, title = "Waterfall Chart", 
-                                      xTitle = "", yTitle = "", height = 400,
-                                      valueTransform = function(x) x, 
-                                      addTotal = TRUE, totalLabel = "Total") {
-  function(df) {
-    req(df[[labelVar]], df[[valueVar]])
-    
-    df_agg <- df %>%
-      dplyr::group_by(!!sym(labelVar)) %>%
-      dplyr::summarise(Value = sum(!!sym(valueVar), na.rm = TRUE)) %>%
-      dplyr::mutate(Value = valueTransform(Value)) %>%
-      dplyr::arrange(desc(abs(Value))) %>%
-      dplyr::mutate(
-        prefix = paste0(LETTERS[seq_along(!!sym(labelVar))], ". "),
-        label = paste0(prefix, !!sym(labelVar)),
-        measure = "relative",
-        text = format(Value, big.mark = " ")
-      )
-    
-    if (addTotal) {
-      total <- data.frame(
-        label = totalLabel,
-        Value = sum(df_agg$Value, na.rm = TRUE),
-        measure = "total",
-        text = format(sum(df_agg$Value, na.rm = TRUE), big.mark = " ")
-      )
-      df_waterfall <- dplyr::bind_rows(df_agg[, c("label", "Value", "measure", "text")], total)
+  
+  if (is.null(x_col)) {
+    x_col <- color_col
+  }
+  
+  # Auto-détection du type de plot
+  if (plot_type == "auto") {
+    if (!is.null(color_col) && !is.null(y_col)) {
+      plot_type <- "bar"
+    } else if (length(numeric_cols) > 0) {
+      plot_type <- "histogram"
     } else {
-      df_waterfall <- df_agg[, c("label", "Value", "measure", "text")]
+      plot_type <- "bar"
     }
-    
-    plot_ly(df_waterfall, type = "waterfall", x = ~label, y = ~Value, text = ~text,
-            measure = ~measure, textposition = "outside",
-            connector = list(line = list(color = "rgba(63, 63, 63, 0.7)"))) %>%
-      layout(title = title, xaxis = list(title = xTitle, tickangle = -45),
-             yaxis = list(title = yTitle), paper_bgcolor = 'rgba(0,0,0,0)',
-             plot_bgcolor = 'rgba(0,0,0,0)')
   }
+  
+  # Titre automatique si non spécifié
+  if (is.null(title)) {
+    title <- paste(tools::toTitleCase(plot_type), "Plot")
+    if (!is.null(y_col)) title <- paste(title, "of", y_col)
+  }
+  
+  # Création du plot selon le type
+  switch(plot_type,
+    "bar" = create_bar_plot(df, x_col, y_col, color_col, title),
+    "pie" = create_pie_plot(df, x_col, y_col, title),
+    "scatter" = create_scatter_plot(df, x_col, y_col, color_col, title),
+    "histogram" = create_histogram_plot(df, y_col, title),
+    "box" = create_box_plot(df, x_col, y_col, title),
+    "waterfall" = create_waterfall_plot(df, x_col, y_col, title),
+    create_bar_plot(df, x_col, y_col, color_col, title)  # fallback
+  )
 }
 
-#' Generic line plot function - Returns plotly object only
-createGenericLinePlot <- function(xVar, yVar, colorVar = NULL, title = "Line Plot",
-                                 xTitle = "", yTitle = "", height = 400,
-                                 lineType = "lines", mode = "lines+markers") {
-  function(df) {
-    req(df[[xVar]], df[[yVar]])
-    
-    p <- plot_ly(df, 
-                 x = as.formula(paste0("~", xVar)), 
-                 y = as.formula(paste0("~", yVar)), 
-                 type = "scatter",
-                 mode = mode)
-    
-    if (!is.null(colorVar) && colorVar %in% names(df)) {
-      p <- p %>% add_trace(color = as.formula(paste0("~", colorVar)))
-    }
-    
-    p %>% layout(
+# Fonctions spécialisées pour chaque type de plot
+create_bar_plot <- function(df, x_col, y_col, color_col, title) {
+  # Validation des données (remplace req() pour utilisation hors Shiny)
+  if (is.null(df[[x_col]]) || is.null(df[[y_col]])) {
+    return(plot_ly() %>% layout(title = "Missing data"))
+  }
+  
+  # Agréger les données si nécessaire
+  if (!is.null(color_col) && color_col %in% names(df)) {
+    df_plot <- df %>%
+      dplyr::group_by(!!sym(x_col)) %>%
+      dplyr::summarise(total = sum(!!sym(y_col), na.rm = TRUE), .groups = 'drop') %>%
+      dplyr::arrange(desc(abs(total)))
+  } else {
+    df_plot <- df
+    names(df_plot)[names(df_plot) == y_col] <- "total"
+  }
+  
+  plot_ly(df_plot,
+    x = ~get(x_col),
+    y = ~total,
+    type = "bar",
+    text = ~format(total, big.mark = " ", digits = 0),
+    textposition = "outside",
+    marker = list(color = 'steelblue')
+  ) %>%
+  layout(
+    title = title,
+    xaxis = list(title = x_col, tickangle = -45),
+    yaxis = list(title = y_col),
+    paper_bgcolor = 'rgba(0,0,0,0)',
+    plot_bgcolor = 'rgba(0,0,0,0)'
+  )
+}
+
+create_pie_plot <- function(df, x_col, y_col, title) {
+  if (is.null(df[[x_col]]) || is.null(df[[y_col]])) {
+    return(plot_ly() %>% layout(title = "Missing data"))
+  }
+  
+  df_pie <- df %>%
+    dplyr::group_by(!!sym(x_col)) %>%
+    dplyr::summarise(total = sum(abs(!!sym(y_col)), na.rm = TRUE), .groups = 'drop') %>%
+    dplyr::filter(total > 0)
+  
+  plot_ly(df_pie,
+    labels = ~get(x_col),
+    values = ~total,
+    type = "pie",
+    textinfo = "label+percent",
+    hoverinfo = "label+value+percent"
+  ) %>%
+  layout(
+    title = title,
+    showlegend = TRUE,
+    paper_bgcolor = 'rgba(0,0,0,0)',
+    plot_bgcolor = 'rgba(0,0,0,0)'
+  )
+}
+
+create_scatter_plot <- function(df, x_col, y_col, color_col, title) {
+  if (is.null(df[[x_col]]) || is.null(df[[y_col]])) {
+    return(plot_ly() %>% layout(title = "Missing data"))
+  }
+  
+  p <- plot_ly(df,
+    x = ~get(x_col),
+    y = ~get(y_col),
+    type = "scatter",
+    mode = "markers"
+  )
+  
+  if (!is.null(color_col) && color_col %in% names(df)) {
+    p <- p %>% add_trace(color = ~get(color_col))
+  }
+  
+  p %>% layout(
+    title = title,
+    xaxis = list(title = x_col),
+    yaxis = list(title = y_col),
+    paper_bgcolor = 'rgba(0,0,0,0)',
+    plot_bgcolor = 'rgba(0,0,0,0)'
+  )
+}
+
+create_histogram_plot <- function(df, y_col, title) {
+  if (is.null(df[[y_col]])) {
+    return(plot_ly() %>% layout(title = "Missing data"))
+  }
+  
+  plot_ly(df, x = ~get(y_col), type = "histogram") %>%
+    layout(
       title = title,
-      xaxis = list(title = xTitle),
-      yaxis = list(title = yTitle),
+      xaxis = list(title = y_col),
+      yaxis = list(title = "Count"),
       paper_bgcolor = 'rgba(0,0,0,0)',
       plot_bgcolor = 'rgba(0,0,0,0)'
     )
-  }
 }
 
-#' Generic scatter plot function - Returns plotly object only
-createGenericScatterPlot <- function(xVar, yVar, colorVar = NULL, sizeVar = NULL,
-                                    title = "Scatter Plot", xTitle = "", yTitle = "",
-                                    height = 400, mode = "markers") {
-  function(df) {
-    req(df[[xVar]], df[[yVar]])
-    
-    p <- plot_ly(df, 
-                 x = as.formula(paste0("~", xVar)), 
-                 y = as.formula(paste0("~", yVar)), 
-                 type = "scatter",
-                 mode = mode)
-    
-    if (!is.null(colorVar) && colorVar %in% names(df)) {
-      p <- p %>% add_trace(color = as.formula(paste0("~", colorVar)))
-    }
-    
-    if (!is.null(sizeVar) && sizeVar %in% names(df)) {
-      p <- p %>% add_trace(size = as.formula(paste0("~", sizeVar)))
-    }
-    
-    p %>% layout(
-      title = title,
-      xaxis = list(title = xTitle),
-      yaxis = list(title = yTitle),
-      paper_bgcolor = 'rgba(0,0,0,0)',
-      plot_bgcolor = 'rgba(0,0,0,0)'
+create_box_plot <- function(df, x_col, y_col, title) {
+  if (is.null(df[[y_col]])) {
+    return(plot_ly() %>% layout(title = "Missing data"))
+  }
+  
+  if (!is.null(x_col) && x_col %in% names(df)) {
+    plot_ly(df,
+      x = ~get(x_col),
+      y = ~get(y_col),
+      type = "box"
     )
-  }
+  } else {
+    plot_ly(df, y = ~get(y_col), type = "box")
+  } %>%
+  layout(
+    title = title,
+    xaxis = list(title = if(is.null(x_col)) "" else x_col),
+    yaxis = list(title = y_col),
+    paper_bgcolor = 'rgba(0,0,0,0)',
+    plot_bgcolor = 'rgba(0,0,0,0)'
+  )
 }
 
-#' Generic histogram function - Returns plotly object only
-createGenericHistogram <- function(xVar, title = "Histogram", xTitle = "", yTitle = "Count",
-                                  height = 400, bins = NULL, color = NULL) {
-  function(df) {
-    req(df[[xVar]])
-    
-    p <- plot_ly(df, x = as.formula(paste0("~", xVar)), type = "histogram")
-    
-    if (!is.null(color)) {
-      p <- p %>% add_trace(marker = list(color = color))
-    }
-    
-    if (!is.null(bins)) {
-      p <- p %>% add_trace(nbinsx = bins)
-    }
-    
-    p %>% layout(
-      title = title,
-      xaxis = list(title = xTitle),
-      yaxis = list(title = yTitle),
-      paper_bgcolor = 'rgba(0,0,0,0)',
-      plot_bgcolor = 'rgba(0,0,0,0)'
+create_waterfall_plot <- function(df, x_col, y_col, title) {
+  if (is.null(df[[x_col]]) || is.null(df[[y_col]])) {
+    return(plot_ly() %>% layout(title = "Missing data"))
+  }
+  
+  df_agg <- df %>%
+    dplyr::group_by(!!sym(x_col)) %>%
+    dplyr::summarise(Value = sum(!!sym(y_col), na.rm = TRUE)) %>%
+    dplyr::arrange(desc(abs(Value))) %>%
+    dplyr::mutate(
+      prefix = paste0(LETTERS[seq_along(!!sym(x_col))], ". "),
+      label = paste0(prefix, !!sym(x_col)),
+      measure = "relative",
+      text = format(Value, big.mark = " ")
     )
-  }
+  
+  total <- data.frame(
+    label = "Total",
+    Value = sum(df_agg$Value, na.rm = TRUE),
+    measure = "total",
+    text = format(sum(df_agg$Value, na.rm = TRUE), big.mark = " ")
+  )
+  
+  df_waterfall <- dplyr::bind_rows(df_agg[, c("label", "Value", "measure", "text")], total)
+  
+  plot_ly(df_waterfall,
+    type = "waterfall",
+    x = ~label,
+    y = ~Value,
+    text = ~text,
+    measure = ~measure,
+    textposition = "outside",
+    connector = list(line = list(color = "rgba(63, 63, 63, 0.7)"))
+  ) %>%
+  layout(
+    title = title,
+    xaxis = list(title = "", tickangle = -45),
+    yaxis = list(title = y_col),
+    paper_bgcolor = 'rgba(0,0,0,0)',
+    plot_bgcolor = 'rgba(0,0,0,0)'
+  )
 }
 
-#' Generic box plot function - Returns plotly object only
-createGenericBoxPlot <- function(xVar, yVar, title = "Box Plot", xTitle = "", yTitle = "",
-                                height = 400, colorVar = NULL) {
-  function(df) {
-    req(df[[xVar]], df[[yVar]])
+#' Fonction pour créer automatiquement des plots basés sur l'analyse des données
+#' @param df Data frame
+#' @param max_plots Nombre maximum de plots à créer
+#' @return Liste des objets plotly
+createIntelligentPlots <- function(df, max_plots = 3) {
+  plots <- list()
+  
+  # Analyser les données
+  has_classification <- "lrm_classification" %in% names(df)
+  numeric_cols <- names(df)[sapply(df, is.numeric)]
+  
+  if (has_classification && length(numeric_cols) > 0) {
+    # Plot 1: Bar chart
+    plots$bar <- createGenericPlot(df, "bar", "lrm_classification", numeric_cols[1], 
+                                   title = paste("Total", numeric_cols[1], "by Classification"))
     
-    p <- plot_ly(df, 
-                 x = as.formula(paste0("~", xVar)), 
-                 y = as.formula(paste0("~", yVar)), 
-                 type = "box")
+    # Plot 2: Pie chart
+    plots$pie <- createGenericPlot(df, "pie", "lrm_classification", numeric_cols[1],
+                                   title = paste("Distribution of", numeric_cols[1]))
     
-    if (!is.null(colorVar) && colorVar %in% names(df)) {
-      p <- p %>% add_trace(color = as.formula(paste0("~", colorVar)))
+    # Plot 3: Scatter ou histogram selon les colonnes disponibles
+    if (length(numeric_cols) >= 2) {
+      plots$scatter <- createGenericPlot(df, "scatter", numeric_cols[1], numeric_cols[2], "lrm_classification",
+                                         title = paste(numeric_cols[1], "vs", numeric_cols[2]))
+    } else {
+      plots$histogram <- createGenericPlot(df, "histogram", y_col = numeric_cols[1],
+                                           title = paste("Distribution of", numeric_cols[1]))
     }
+  } else if (length(numeric_cols) > 0) {
+    # Sans classification, plots simples
+    plots$box <- createGenericPlot(df, "box", y_col = numeric_cols[1],
+                                   title = paste("Box Plot of", numeric_cols[1]))
     
-    p %>% layout(
-      title = title,
-      xaxis = list(title = xTitle),
-      yaxis = list(title = yTitle),
-      paper_bgcolor = 'rgba(0,0,0,0)',
-      plot_bgcolor = 'rgba(0,0,0,0)'
-    )
-  }
-}
-
-#' Generic heatmap function - Returns plotly object only
-createGenericHeatmap <- function(xVar, yVar, zVar, title = "Heatmap", 
-                                xTitle = "", yTitle = "", height = 400,
-                                colorscale = "Viridis") {
-  function(df) {
-    req(df[[xVar]], df[[yVar]], df[[zVar]])
-    
-    plot_ly(df, 
-            x = as.formula(paste0("~", xVar)), 
-            y = as.formula(paste0("~", yVar)), 
-            z = as.formula(paste0("~", zVar)),
-            type = "heatmap",
-            colorscale = colorscale) %>%
-      layout(
-        title = title,
-        xaxis = list(title = xTitle),
-        yaxis = list(title = yTitle),
-        paper_bgcolor = 'rgba(0,0,0,0)',
-        plot_bgcolor = 'rgba(0,0,0,0)'
-      )
-  }
-}
-
-#' Generic multi-trace plot function - Returns plotly object only
-createGenericMultiTracePlot <- function(traces, title = "Multi-Trace Plot", 
-                                       xTitle = "", yTitle = "", height = 400,
-                                       barmode = "group", orientation = "v") {
-  function(df) {
-    p <- plot_ly(type = if(orientation == "h") "bar" else "bar", orientation = orientation)
-    
-    for (trace in traces) {
-      if (trace$type == "bar") {
-        p <- p %>% add_trace(
-          x = if(orientation == "h") trace$x else trace$y,
-          y = if(orientation == "h") trace$y else trace$x,
-          name = trace$name,
-          marker = trace$marker,
-          text = trace$text,
-          hoverinfo = trace$hoverinfo
-        )
-      } else if (trace$type == "line") {
-        p <- p %>% add_trace(
-          x = trace$x,
-          y = trace$y,
-          name = trace$name,
-          type = "scatter",
-          mode = trace$mode
-        )
-      }
+    if (length(numeric_cols) >= 2) {
+      plots$scatter <- createGenericPlot(df, "scatter", numeric_cols[1], numeric_cols[2],
+                                         title = paste(numeric_cols[1], "vs", numeric_cols[2]))
     }
-    
-    p %>% layout(
-      title = title,
-      xaxis = list(title = xTitle),
-      yaxis = list(title = yTitle),
-      barmode = barmode,
-      paper_bgcolor = 'rgba(0,0,0,0)',
-      plot_bgcolor = 'rgba(0,0,0,0)',
-      showlegend = TRUE
-    )
   }
+  
+  return(plots[1:min(length(plots), max_plots)])
 }
+
 
 #----------------------------------------------------------------------------------#
 #------------------------- FONCTION GÉNÉRIQUE PRINCIPALE -------------------------#
@@ -468,110 +468,105 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
             }
           }
 
-          # Add plots based on configuration
-          cat("🔍 DEBUG: Starting plot configuration check...\n")
-          cat("🔍 DEBUG: Number of plot configs:", length(config$plots), "\n")
+          # APPROCHE FACTORISÉE: Dashboard fait appel aux fonctions de plots
+          cat("🔍 DASHBOARD: Starting plot generation...\n")
+          cat("🔍 DASHBOARD: Table:", table_name, "\n")
+          cat("🔍 DASHBOARD: Columns:", paste(names(df), collapse = ", "), "\n")
+          cat("🔍 DASHBOARD: Rows:", nrow(df), "\n")
           
-          if (length(config$plots) > 0) {
-            for (i in seq_along(config$plots)) {
-              plot_config <- config$plots[[i]]
-              pattern_check <- grepl(plot_config$pattern, gsub_underscore_dash(" ", "_", tolower(table_name)))
+          # Fonction dashboard qui fait appel aux fonctions de plots factorisées
+          generate_dashboard_plots <- function(df, table_name, tab_id, tokenUI) {
+            cat("🔍 DASHBOARD: Generating plots for dashboard...\n")
+            
+            tryCatch({
+              # 1. Créer les plots en utilisant les fonctions factorisées
+              intelligent_plots <- createIntelligentPlots(df, max_plots = 3)
               
-              cat("🔍 DEBUG: Plot config", i, "- Pattern:", plot_config$pattern, "\n")
-              cat("🔍 DEBUG: Table name (processed):", gsub_underscore_dash(" ", "_", tolower(table_name)), "\n")
-              cat("🔍 DEBUG: Pattern match:", pattern_check, "\n")
-              
-              if (pattern_check) {
-                cat("✅ DEBUG: Pattern matched! Creating UI and plots...\n")
+              if (length(intelligent_plots) > 0) {
+                cat("✅ DASHBOARD: Generated", length(intelligent_plots), "plots\n")
+                cat("🔍 DASHBOARD: Plot types:", names(intelligent_plots), "\n")
                 
-                # Call UI function with parameters if it's a function, otherwise use as is
-                ui_content <- if (is.function(plot_config$ui)) {
-                  cat("🔍 DEBUG: UI is a function, calling with tab_id:", tab_id, "tokenUI:", tokenUI, "\n")
-                  result_ui <- plot_config$ui(tab_id, tokenUI)
-                  cat("🔍 DEBUG: UI function returned\n")
-                  result_ui
-                } else {
-                  cat("🔍 DEBUG: UI is static content\n")
-                  plot_config$ui
+                # 2. Créer l'UI pour afficher les plots
+                plot_columns <- list()
+                plot_outputs <- list()
+                
+                for (i in seq_along(intelligent_plots)) {
+                  plot_name <- names(intelligent_plots)[i]
+                  plot_id <- paste0("dashboard_", plot_name, "_", tab_id, "_", tokenUI)
+                  
+                  # Créer la colonne UI
+                  plot_columns[[i]] <- column(
+                    width = if(length(intelligent_plots) == 1) 12 else if(length(intelligent_plots) == 2) 6 else 4,
+                    plotlyOutput(outputId = plot_id, height = "450px")
+                  )
+                  
+                  # Créer l'output renderPlotly qui fait appel à la fonction de plot
+                  output[[plot_id]] <- renderPlotly({
+                    cat("🔍 DASHBOARD: Rendering", plot_name, "plot\n")
+                    intelligent_plots[[i]]  # Appel direct à la fonction de plot factorisée
+                  })
+                  
+                  cat("✅ DASHBOARD: Created output for", plot_name, "with ID:", plot_id, "\n")
                 }
                 
-                selector_target <- paste0("#", paste0("plots_", tab_id))
-                cat("🔍 DEBUG: Inserting UI with selector:", selector_target, "\n")
-                insertUI(selector = selector_target, where = "beforeEnd", ui = ui_content)
-                cat("✅ DEBUG: UI inserted successfully\n")
+                # 3. Insérer l'UI avec tous les plots
+                insertUI(
+                  selector = paste0("#plots_", tab_id),
+                  where = "beforeEnd",
+                  ui = tags$div(
+                    style = "margin: 15px 0;",
+                    h4("📊 Dashboard Analytics", style = "color: #2c3e50; margin-bottom: 20px;"),
+                    do.call(fluidRow, plot_columns)
+                  )
+                )
                 
-                # DEBUG: Print plot configuration info
-                cat("🔍 DEBUG: Plot config found for pattern:", plot_config$pattern, "\n")
-                cat("🔍 DEBUG: Table name:", table_name, "\n")
-                cat("🔍 DEBUG: Number of plots to create:", length(plot_config$plots), "\n")
-                cat("🔍 DEBUG: Plot names:", names(plot_config$plots), "\n")
+                cat("✅ DASHBOARD: UI inserted successfully\n")
+                return(length(intelligent_plots))
                 
-                # Add plot logic - Use EXACTLY the same approach as code.R
-                for (plot_name in names(plot_config$plots)) {
-                  plot_spec <- plot_config$plots[[plot_name]]
-                  plot_output_id <- paste0(plot_name, "_", tab_id, "_", tokenUI)
-                  
-                  cat("🔍 DEBUG: Creating plot:", plot_name, "with ID:", plot_output_id, "\n")
-                  cat("🔍 DEBUG: Data frame columns:", paste(names(df), collapse = ", "), "\n")
-                  cat("🔍 DEBUG: Data frame rows:", nrow(df), "\n")
-                  
-                  if (is.function(plot_spec)) {
-                    # Check if it's a custom function (takes 3 params) or generic function (takes 1 param)
-                    plot_params <- formals(plot_spec)
-                    cat("🔍 DEBUG: Function has", length(plot_params), "parameters\n")
-                    
-                    if (length(plot_params) >= 3) {
-                      cat("🔍 DEBUG: Executing custom function for", plot_name, "\n")
-                      tryCatch({
-                        # Custom function - execute exactly like in code.R
-                        result <- plot_spec(df, tab_id, tokenUI)
-                        output[[plot_output_id]] <- result
-                        cat("✅ DEBUG: Successfully assigned custom plot", plot_name, "\n")
-                      }, error = function(e) {
-                        cat("❌ DEBUG: Error in custom plot", plot_name, ":", e$message, "\n")
-                        print(e)
+              } else {
+                cat("ℹ️ DASHBOARD: No suitable plots could be generated\n")
+                
+                # Afficher un message informatif
+                insertUI(
+                  selector = paste0("#plots_", tab_id),
+                  where = "beforeEnd",
+                  ui = tags$div(
+                    style = "margin: 15px 0; padding: 20px; background-color: #f8f9fa; border-left: 4px solid #17a2b8;",
+                    h5("ℹ️ Information", style = "color: #17a2b8;"),
+                    p("No suitable columns found for generating plots. Table contains:",
+                      style = "margin: 5px 0;"),
+                    tags$ul(
+                      lapply(names(df), function(col) {
+                        tags$li(paste(col, ":", class(df[[col]])[1]))
                       })
-                    } else {
-                      cat("🔍 DEBUG: Executing generic function for", plot_name, "\n")
-                      tryCatch({
-                        # Generic function
-                        output[[plot_output_id]] <- renderPlotly({
-                          cat("🔍 DEBUG: Inside renderPlotly for", plot_name, "\n")
-                          plot_result <- plot_spec(df)
-                          cat("✅ DEBUG: Plot object created for", plot_name, "\n")
-                          plot_result
-                        })
-                        cat("✅ DEBUG: Successfully assigned generic plot", plot_name, "\n")
-                      }, error = function(e) {
-                        cat("❌ DEBUG: Error in generic plot", plot_name, ":", e$message, "\n")
-                        print(e)
-                      })
-                    }
-                  } else if (is.list(plot_spec) && !is.null(plot_spec$renderer)) {
-                    cat("🔍 DEBUG: Executing list renderer for", plot_name, "\n")
-                    tryCatch({
-                      output[[plot_output_id]] <- plot_spec$renderer(df, tab_id, tokenUI)
-                      cat("✅ DEBUG: Successfully assigned list renderer plot", plot_name, "\n")
-                    }, error = function(e) {
-                      cat("❌ DEBUG: Error in list renderer", plot_name, ":", e$message, "\n")
-                      print(e)
-                    })
-                  } else {
-                    cat("🔍 DEBUG: Direct assignment for", plot_name, "\n")
-                    output[[plot_output_id]] <- plot_spec
-                    cat("✅ DEBUG: Successfully assigned direct plot", plot_name, "\n")
-                  }
-                  
-                  # Verify the output was actually assigned
-                  if (exists(plot_output_id, envir = as.environment(output))) {
-                    cat("✅ DEBUG: Confirmed plot", plot_output_id, "exists in output\n")
-                  } else {
-                    cat("❌ DEBUG: Plot", plot_output_id, "NOT found in output!\n")
-                  }
-                }
+                    )
+                  )
+                )
+                return(0)
               }
-            }
+              
+            }, error = function(e) {
+              cat("❌ DASHBOARD: Error generating plots:", e$message, "\n")
+              print(e)
+              
+              # Afficher un message d'erreur informatif
+              insertUI(
+                selector = paste0("#plots_", tab_id),
+                where = "beforeEnd",
+                ui = tags$div(
+                  style = "margin: 15px 0; padding: 20px; background-color: #f8d7da; border-left: 4px solid #dc3545;",
+                  h5("❌ Plot Generation Error", style = "color: #dc3545;"),
+                  p("Could not generate plots for this table:", style = "margin: 5px 0;"),
+                  code(e$message, style = "background-color: #fff; padding: 5px;")
+                )
+              )
+              return(0)
+            })
           }
+          
+          # Appeler la fonction dashboard qui orchestre les plots
+          plots_count <- generate_dashboard_plots(df, table_name, tab_id, tokenUI)
+          cat("✅ DASHBOARD: Successfully processed", plots_count, "plots for table:", table_name, "\n")
 
           # Handle special table types
           if (grepl("interface_alloc", gsub_underscore_dash(" ", "_", tolower(table_name)))) {

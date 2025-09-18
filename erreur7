@@ -1,0 +1,270 @@
+# ==== START FILE: 99_dashboards/generic_dashboards.R ====
+
+#----------------------------------------------------------------------------------#
+#------------------------- HELPERS & DATA PROCESS ---------------------------------#
+#----------------------------------------------------------------------------------#
+
+process_dashboard_data <- function(params, appName, excludePattern = NULL) {
+  appSelected <- params$runInfo$appSelected
+  run_date <- params$runInfo$runDate
+  environment <- params$environment
+
+  engine_output <- fread(path_admin_param_engine_output, sep = global_separator)
+  tempOutput <- engine_output[tolower(gsub_underscore_dash(" ", "_", engine_output$app)) ==
+                                tolower(gsub_underscore_dash(" ", "_", appSelected)), ]
+  files <- tempOutput[tolower(tempOutput$type) == "file", ]
+  files$tableaddress <- sprintf(as.character(files$tableaddress), run_date)
+
+  if (!is.null(excludePattern)) {
+    files <- files[!grepl(excludePattern, tolower(files$output)), ]
+  }
+
+  prod_path <- paste0(foundationRuns_dbfs_root_path, "/", 
+                      gsub_underscore_dash(" ", "_", tolower(appSelected)), "/", 
+                      environment, "/Outputs/", run_date)
+
+  data <- list()
+  j <- 1
+  for (i in 1:nrow(files)) {
+    file_path <- file.path(prod_path, files$tableaddress[i])
+    if (grepl(".csv", file_path)) {
+      data[[j]] <- fread(file_path, sep = global_separator)
+      names(data)[j] <- files$output[i]
+    }
+    j <- j + 1
+  }
+  return(data)
+}
+
+# Wrappers (compatibilité)
+process_dashboard_risk_framework_liquidity <- function(params) {
+  process_dashboard_data(params, "rf_liquidity", "awa")
+}
+process_dashboard_ip_local_main <- function(params) {
+  process_dashboard_data(params, "ip_local", "awa")
+}
+process_dashboard_am_fees_report <- function(params) {
+  process_dashboard_data(params, "am_fees")
+}
+
+#----------------------------------------------------------------------------------#
+#------------------------- FONCTIONS GÉNÉRIQUES DE PLOTS --------------------------#
+#----------------------------------------------------------------------------------#
+
+createGenericBarPlot <- function(xVar, yVar, colorVar = NULL, title = "Bar Plot",
+                                 xTitle = "", yTitle = "", textVar = NULL, hoverinfo = "text+y",
+                                 orientation = "v", barmode = "group") {
+  function(df) {
+    req(df[[xVar]], df[[yVar]])
+    p <- plot_ly(df,
+                 x = if (orientation == "v") df[[xVar]] else df[[yVar]],
+                 y = if (orientation == "v") df[[yVar]] else df[[xVar]],
+                 type = "bar",
+                 orientation = orientation)
+    if (!is.null(colorVar) && colorVar %in% names(df)) {
+      p <- p %>% add_trace(color = df[[colorVar]])
+    }
+    if (!is.null(textVar) && textVar %in% names(df)) {
+      p <- p %>% add_trace(text = df[[textVar]], hoverinfo = hoverinfo)
+    }
+    p %>% layout(
+      title = title,
+      xaxis = list(title = if (orientation == "v") xTitle else yTitle),
+      yaxis = list(title = if (orientation == "v") yTitle else xTitle),
+      barmode = barmode,
+      paper_bgcolor = 'rgba(0,0,0,0)',
+      plot_bgcolor = 'rgba(0,0,0,0)'
+    )
+  }
+}
+
+createGenericPiePlot <- function(labelsVar, valuesVar, title = "Pie Chart") {
+  function(df) {
+    req(df[[labelsVar]], df[[valuesVar]])
+    plot_ly(df,
+            labels = df[[labelsVar]],
+            values = df[[valuesVar]],
+            type = "pie",
+            textinfo = "label+percent",
+            hoverinfo = "label+value+percent") %>%
+      layout(title = title,
+             showlegend = TRUE,
+             paper_bgcolor = 'rgba(0,0,0,0)',
+             plot_bgcolor = 'rgba(0,0,0,0)')
+  }
+}
+
+createGenericWaterfallPlot <- function(labelVar, valueVar, title = "Waterfall Chart",
+                                       xTitle = "", yTitle = "", valueTransform = function(x) x,
+                                       addTotal = TRUE, totalLabel = "Total") {
+  function(df) {
+    req(df[[labelVar]], df[[valueVar]])
+    df_agg <- df %>%
+      dplyr::group_by(!!sym(labelVar)) %>%
+      dplyr::summarise(Value = sum(!!sym(valueVar), na.rm = TRUE)) %>%
+      dplyr::mutate(Value = valueTransform(Value)) %>%
+      dplyr::arrange(desc(abs(Value))) %>%
+      dplyr::mutate(
+        prefix = paste0(LETTERS[seq_along(!!sym(labelVar))], ". "),
+        label = paste0(prefix, !!sym(labelVar)),
+        measure = "relative",
+        text = format(Value, big.mark = " ")
+      )
+    if (addTotal) {
+      total <- data.frame(
+        label = totalLabel,
+        Value = sum(df_agg$Value, na.rm = TRUE),
+        measure = "total",
+        text = format(sum(df_agg$Value, na.rm = TRUE), big.mark = " ")
+      )
+      df_waterfall <- dplyr::bind_rows(df_agg[, c("label", "Value", "measure", "text")], total)
+    } else {
+      df_waterfall <- df_agg[, c("label", "Value", "measure", "text")]
+    }
+    plot_ly(df_waterfall, type = "waterfall",
+            x = ~label, y = ~Value, text = ~text,
+            measure = ~measure, textposition = "outside",
+            connector = list(line = list(color = "rgba(63, 63, 63, 0.7)"))) %>%
+      layout(title = title, xaxis = list(title = xTitle, tickangle = -45),
+             yaxis = list(title = yTitle),
+             paper_bgcolor = 'rgba(0,0,0,0)',
+             plot_bgcolor = 'rgba(0,0,0,0)')
+  }
+}
+
+#----------------------------------------------------------------------------------#
+#------------------------- DASHBOARD PRINCIPAL GÉNÉRIQUE --------------------------#
+#----------------------------------------------------------------------------------#
+
+createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "", tokenUI = "", config = list()) {
+  ns <- NS(id)
+
+  defaultConfig <- list(
+    appName = appName,
+    reportName = paste0(toupper(gsub("_", "", appName)), "_Report"),
+    plots = list(),
+    errorMessage = "Error.. please retry again",
+    successRedirect = "#historyAnalysis"
+  )
+  config <- modifyList(defaultConfig, config)
+
+  observe({
+    req(reactiveReportObject$app)
+    appSelected <- reactiveReportObject$app
+    if (!tolower(gsub("_", "_", appSelected)) %in% c(config$appName)) {
+      return()
+    }
+
+    showPageSpinner()
+    tryCatch({
+      removeUI(selector = paste0("#", id, "ContentAnalysis"), immediate = TRUE)
+
+      data_list <- reactiveReportObject$reportData
+      if (is.null(data_list)) {
+        hidePageSpinner()
+        return()
+      }
+      if (!is.list(data_list)) {
+        data_list <- list(data_list)
+        names(data_list) <- c("Report")
+      }
+
+      tabs <- Map(function(i) list(id = paste0(id, "-", i, "_", tokenUI), name = names(data_list)[i]), seq_along(data_list))
+      ui_root <- tags$div(
+        id = paste0(id, "ContentAnalysis"),
+        class = "row",
+        tags$div(class = "col-12", Generate_dashboard_tabs_table(tabs))
+      )
+      insertUI(selector = paste0("#", id, "Content"), ui = ui_root, immediate = TRUE)
+
+      for (i in seq_along(data_list)) {
+        local({
+          df <- data_list[[i]]
+          table_name <- names(data_list)[i]
+          tab_id <- paste0(id, "-", i, "_", tokenUI)
+
+          for (plot_name in names(config$plots)) {
+            plot_output_id <- paste0(plot_name, "_", tab_id, "_", tokenUI)
+            insertUI(
+              selector = paste0("#plots_", tab_id),
+              where = "beforeEnd",
+              ui = plotlyOutput(outputId = plot_output_id, height = "500px")
+            )
+            plot_func <- config$plots[[plot_name]]
+            output[[plot_output_id]] <- renderPlotly({
+              plot_func(df)
+            })
+          }
+        })
+      }
+
+      hidePageSpinner()
+      runjs(paste0("$('a[href=\"", config$successRedirect, "\"]').click();"))
+    }, error = function(e) {
+      print(e)
+      hidePageSpinner()
+      runjs(paste0("toastr.error('", config$errorMessage, "','',toastr.options.timeOut='500');"))
+    })
+  })
+}
+
+#----------------------------------------------------------------------------------#
+#------------------------- MODULES SPÉCIALISÉS -----------------------------------#
+#----------------------------------------------------------------------------------#
+
+# RFLiquidity
+createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
+  config <- list(
+    appName = "rf_liquidity",
+    reportName = "RiskFrameworkLiquidity_Report",
+    plots = list(
+      plot_impact = createGenericBarPlot("lrm_classification", "Ressources_before_haircut",
+                                         colorVar = "lrm_classification",
+                                         title = "Resources before haircut",
+                                         yTitle = "Impact (%)"),
+      plot_waterfall = createGenericWaterfallPlot("lrm_classification", "Financial_Impact",
+                                                  title = "Financial Impact",
+                                                  yTitle = "Financial Impact (€)",
+                                                  valueTransform = function(x) -x),
+      plot_pie = createGenericPiePlot("lrm_classification", "Weighted_resources_after_encumbrance")
+    )
+  )
+  createGenericDashboardUI(id, reactiveReportObject, "rf_liquidity", user, tokenUI, config)
+}
+
+# AMFees
+createAMFeesUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
+  config <- list(
+    appName = "am_fees",
+    reportName = "AMFees_Report"
+    # tu peux ajouter plots = list(...) si tu veux aussi factoriser les graphiques
+  )
+  createGenericDashboardUI(id, reactiveReportObject, "am_fees", user, tokenUI, config)
+}
+
+# IPLocal
+createIPLocalMainUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
+  config <- list(
+    appName = "ip_local",
+    reportName = "IPLocalMain_Report"
+  )
+  createGenericDashboardUI(id, reactiveReportObject, "ip_local", user, tokenUI, config)
+}
+
+#----------------------------------------------------------------------------------#
+#------------------------- LANCEMENT ----------------------------------------------#
+#----------------------------------------------------------------------------------#
+
+launch_dashboard_server <- function(appSelected, reactiveReportObject, type = "currentRun") {
+  if (gsub_underscore_dash(" ", "_", tolower(appSelected)) %in% c("ip_local")) {
+    createIPLocalMainUI(type, reactiveReportObject, user = isolate(user_email()), tokenUI = generate_token(5))
+  }
+  if (gsub_underscore_dash(" ", "_", tolower(appSelected)) %in% c("rf_liquidity")) {
+    createRFLiquidityUI(type, reactiveReportObject, user = isolate(user_email()), tokenUI = generate_token(5))
+  }
+  if (gsub_underscore_dash(" ", "_", tolower(appSelected)) %in% c("am_fees")) {
+    createAMFeesUI(type, reactiveReportObject, user = isolate(user_email()), tokenUI = generate_token(5))
+  }
+}
+
+# ==== END FILE: 99_dashboards/generic_dashboards.R ====

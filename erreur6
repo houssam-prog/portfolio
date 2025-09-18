@@ -3,6 +3,56 @@
 #----------------------------------------------------------------------------------#
 
 #----------------------------------------------------------------------------------#
+#------------------------- Fonction générique de traitement de données -----------#
+#----------------------------------------------------------------------------------#
+
+#' Generic function to process dashboard data
+#' 
+#' @param params List containing runInfo and environment
+#' @param appName Name of the application
+#' @param excludePattern Pattern to exclude from files (default: NULL)
+#' @return List of data frames
+process_dashboard_data <- function(params, appName, excludePattern = NULL) {
+  appSelected <- params$runInfo$appSelected
+  run_date <- params$runInfo$runDate
+  environment <- params$environment
+
+  engine_output <- fread(path_admin_param_engine_output, sep = global_separator)
+  tempOutput <- engine_output[tolower(gsub_underscore_dash(" ", "_", engine_output$app)) == tolower(gsub_underscore_dash(" ", "_", appSelected)),]
+  files <- tempOutput[tolower(tempOutput$type) == "file", ]
+  files$tableaddress <- sprintf(as.character(files$tableaddress), run_date)
+  if (!is.null(excludePattern)) {
+    files <- files[!grepl(excludePattern, tolower(files$output)), ]
+  }
+
+  prod_path <- paste0(foundationRuns_dbfs_root_path, "/", gsub_underscore_dash(" ", "_", tolower(appSelected)), "/", environment, "/Outputs/", run_date)
+  data <- list()
+  j <- 1
+  for(i in 1:nrow(files)){
+    file_path <- file.path(prod_path, files$tableaddress[i])
+    if(grepl(".csv", file_path)){
+      data[[j]] <- fread(file_path, sep = global_separator)
+      names(data)[j] <- files$output[i]
+    }
+    j <- j + 1
+  }
+  return(data)
+}
+
+# Wrapper functions for backward compatibility
+process_dashboard_risk_framework_liquidity <- function(params) {
+  process_dashboard_data(params, "rf_liquidity", "awa")  # Ajouter filtre "awa" pour RF Liquidity
+}
+
+process_dashboard_ip_local_main <- function(params) {
+  process_dashboard_data(params, "ip_local", "awa")  # Ajouter filtre "awa" pour IP Local
+}
+
+process_dashboard_am_fees_report <- function(params) {
+  process_dashboard_data(params, "am_fees")  # Pas de filtre pour AM Fees (défaut NULL)
+}
+
+#----------------------------------------------------------------------------------#
 #------------------------- Fonctions génériques de plots -------------------------#
 #----------------------------------------------------------------------------------#
 

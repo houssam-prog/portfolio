@@ -37,33 +37,30 @@ process_dashboard_data <- function(params, appName, excludePattern = NULL) {
 }
 
 #----------------------------------------------------------------------------------#
-#------------------------- FONCTIONS GÉNÉRIQUES DE PLOTS -------------------------#
+#------------------------- FONCTIONS GÉNÉRIQUES DE PLOTS --------------------------#
 #----------------------------------------------------------------------------------#
 
-createGenericBarPlot <- function(xVar, yVar, colorVar = NULL, title = "Bar Plot", 
-                                xTitle = "", yTitle = "", height = 400, 
-                                textVar = NULL, hoverinfo = "text+y", 
-                                orientation = "v", barmode = "group") {
-  function(df, tab_id, tokenUI) {
+# Bar plot
+createGenericBarPlot <- function(xVar, yVar, colorVar = NULL, title = "Bar Plot",
+                                 xTitle = "", yTitle = "", textVar = NULL, hoverinfo = "text+y",
+                                 orientation = "v", barmode = "group") {
+  function(df) {
     req(df[[xVar]], df[[yVar]])
-    
-    p <- plot_ly(df, 
-                 x = if(orientation == "v") as.formula(paste0("~", xVar)) else as.formula(paste0("~", yVar)),
-                 y = if(orientation == "v") as.formula(paste0("~", yVar)) else as.formula(paste0("~", xVar)),
+    p <- plot_ly(df,
+                 x = if (orientation == "v") df[[xVar]] else df[[yVar]],
+                 y = if (orientation == "v") df[[yVar]] else df[[xVar]],
                  type = "bar",
                  orientation = orientation)
-    
     if (!is.null(colorVar) && colorVar %in% names(df)) {
-      p <- p %>% add_trace(color = as.formula(paste0("~", colorVar)))
+      p <- p %>% add_trace(color = df[[colorVar]])
     }
     if (!is.null(textVar) && textVar %in% names(df)) {
-      p <- p %>% add_trace(text = as.formula(paste0("~", textVar)), hoverinfo = hoverinfo)
+      p <- p %>% add_trace(text = df[[textVar]], hoverinfo = hoverinfo)
     }
-    
     p %>% layout(
       title = title,
-      xaxis = list(title = if(orientation == "v") xTitle else yTitle),
-      yaxis = list(title = if(orientation == "v") yTitle else xTitle),
+      xaxis = list(title = if (orientation == "v") xTitle else yTitle),
+      yaxis = list(title = if (orientation == "v") yTitle else xTitle),
       barmode = barmode,
       paper_bgcolor = 'rgba(0,0,0,0)',
       plot_bgcolor = 'rgba(0,0,0,0)'
@@ -71,31 +68,29 @@ createGenericBarPlot <- function(xVar, yVar, colorVar = NULL, title = "Bar Plot"
   }
 }
 
-createGenericPiePlot <- function(labelsVar, valuesVar, title = "Pie Chart", 
-                                height = 400, textinfo = "label+percent", 
-                                hoverinfo = "label+value+percent", showlegend = TRUE) {
-  function(df, tab_id, tokenUI) {
+# Pie plot
+createGenericPiePlot <- function(labelsVar, valuesVar, title = "Pie Chart") {
+  function(df) {
     req(df[[labelsVar]], df[[valuesVar]])
     plot_ly(df,
-      labels = as.formula(paste0("~", labelsVar)),
-      values = as.formula(paste0("~", valuesVar)),
-      type = "pie",
-      textinfo = textinfo,
-      hoverinfo = hoverinfo
-    ) %>%
-      layout(title = title, showlegend = showlegend,
+            labels = df[[labelsVar]],
+            values = df[[valuesVar]],
+            type = "pie",
+            textinfo = "label+percent",
+            hoverinfo = "label+value+percent") %>%
+      layout(title = title,
+             showlegend = TRUE,
              paper_bgcolor = 'rgba(0,0,0,0)',
              plot_bgcolor = 'rgba(0,0,0,0)')
   }
 }
 
-createGenericWaterfallPlot <- function(labelVar, valueVar, title = "Waterfall Chart", 
-                                      xTitle = "", yTitle = "", height = 400,
-                                      valueTransform = function(x) x, 
-                                      addTotal = TRUE, totalLabel = "Total") {
-  function(df, tab_id, tokenUI) {
+# Waterfall plot
+createGenericWaterfallPlot <- function(labelVar, valueVar, title = "Waterfall Chart",
+                                       xTitle = "", yTitle = "", valueTransform = function(x) x,
+                                       addTotal = TRUE, totalLabel = "Total") {
+  function(df) {
     req(df[[labelVar]], df[[valueVar]])
-    
     df_agg <- df %>%
       dplyr::group_by(!!sym(labelVar)) %>%
       dplyr::summarise(Value = sum(!!sym(valueVar), na.rm = TRUE)) %>%
@@ -107,7 +102,6 @@ createGenericWaterfallPlot <- function(labelVar, valueVar, title = "Waterfall Ch
         measure = "relative",
         text = format(Value, big.mark = " ")
       )
-    
     if (addTotal) {
       total <- data.frame(
         label = totalLabel,
@@ -119,8 +113,8 @@ createGenericWaterfallPlot <- function(labelVar, valueVar, title = "Waterfall Ch
     } else {
       df_waterfall <- df_agg[, c("label", "Value", "measure", "text")]
     }
-    
-    plot_ly(df_waterfall, type = "waterfall", x = ~label, y = ~Value, text = ~text,
+    plot_ly(df_waterfall, type = "waterfall",
+            x = ~label, y = ~Value, text = ~text,
             measure = ~measure, textposition = "outside",
             connector = list(line = list(color = "rgba(63, 63, 63, 0.7)"))) %>%
       layout(title = title, xaxis = list(title = xTitle, tickangle = -45),
@@ -130,175 +124,26 @@ createGenericWaterfallPlot <- function(labelVar, valueVar, title = "Waterfall Ch
   }
 }
 
-createGenericLinePlot <- function(xVar, yVar, colorVar = NULL, title = "Line Plot",
-                                 xTitle = "", yTitle = "", height = 400,
-                                 lineType = "lines", mode = "lines+markers") {
-  function(df, tab_id, tokenUI) {
-    req(df[[xVar]], df[[yVar]])
-    p <- plot_ly(df, 
-                 x = as.formula(paste0("~", xVar)), 
-                 y = as.formula(paste0("~", yVar)), 
-                 type = "scatter",
-                 mode = mode)
-    if (!is.null(colorVar) && colorVar %in% names(df)) {
-      p <- p %>% add_trace(color = as.formula(paste0("~", colorVar)))
-    }
-    p %>% layout(title = title,
-                 xaxis = list(title = xTitle),
-                 yaxis = list(title = yTitle),
-                 paper_bgcolor = 'rgba(0,0,0,0)',
-                 plot_bgcolor = 'rgba(0,0,0,0)')
-  }
-}
-
-createGenericScatterPlot <- function(xVar, yVar, colorVar = NULL, sizeVar = NULL,
-                                    title = "Scatter Plot", xTitle = "", yTitle = "",
-                                    height = 400, mode = "markers") {
-  function(df, tab_id, tokenUI) {
-    req(df[[xVar]], df[[yVar]])
-    p <- plot_ly(df, 
-                 x = as.formula(paste0("~", xVar)), 
-                 y = as.formula(paste0("~", yVar)), 
-                 type = "scatter",
-                 mode = mode)
-    if (!is.null(colorVar) && colorVar %in% names(df)) {
-      p <- p %>% add_trace(color = as.formula(paste0("~", colorVar)))
-    }
-    if (!is.null(sizeVar) && sizeVar %in% names(df)) {
-      p <- p %>% add_trace(size = as.formula(paste0("~", sizeVar)))
-    }
-    p %>% layout(title = title,
-                 xaxis = list(title = xTitle),
-                 yaxis = list(title = yTitle),
-                 paper_bgcolor = 'rgba(0,0,0,0)',
-                 plot_bgcolor = 'rgba(0,0,0,0)')
-  }
-}
-
-createGenericHistogram <- function(xVar, title = "Histogram", xTitle = "", yTitle = "Count",
-                                  height = 400, bins = NULL, color = NULL) {
-  function(df, tab_id, tokenUI) {
-    req(df[[xVar]])
-    p <- plot_ly(df, x = as.formula(paste0("~", xVar)), type = "histogram")
-    if (!is.null(color)) p <- p %>% style(marker = list(color = color))
-    if (!is.null(bins)) p <- p %>% style(nbinsx = bins)
-    p %>% layout(title = title,
-                 xaxis = list(title = xTitle),
-                 yaxis = list(title = yTitle),
-                 paper_bgcolor = 'rgba(0,0,0,0)',
-                 plot_bgcolor = 'rgba(0,0,0,0)')
-  }
-}
-
-createGenericBoxPlot <- function(xVar, yVar, title = "Box Plot", xTitle = "", yTitle = "",
-                                height = 400, colorVar = NULL) {
-  function(df, tab_id, tokenUI) {
-    req(df[[xVar]], df[[yVar]])
-    p <- plot_ly(df, 
-                 x = as.formula(paste0("~", xVar)), 
-                 y = as.formula(paste0("~", yVar)), 
-                 type = "box")
-    if (!is.null(colorVar) && colorVar %in% names(df)) {
-      p <- p %>% add_trace(color = as.formula(paste0("~", colorVar)))
-    }
-    p %>% layout(title = title,
-                 xaxis = list(title = xTitle),
-                 yaxis = list(title = yTitle),
-                 paper_bgcolor = 'rgba(0,0,0,0)',
-                 plot_bgcolor = 'rgba(0,0,0,0)')
-  }
-}
-
-createGenericHeatmap <- function(xVar, yVar, zVar, title = "Heatmap", 
-                                xTitle = "", yTitle = "", height = 400,
-                                colorscale = "Viridis") {
-  function(df, tab_id, tokenUI) {
-    req(df[[xVar]], df[[yVar]], df[[zVar]])
-    plot_ly(df, 
-            x = as.formula(paste0("~", xVar)), 
-            y = as.formula(paste0("~", yVar)), 
-            z = as.formula(paste0("~", zVar)),
-            type = "heatmap",
-            colorscale = colorscale) %>%
-      layout(title = title,
-             xaxis = list(title = xTitle),
-             yaxis = list(title = yTitle),
-             paper_bgcolor = 'rgba(0,0,0,0)',
-             plot_bgcolor = 'rgba(0,0,0,0)')
-  }
-}
-
-createGenericMultiTracePlot <- function(traces, title = "Multi-Trace Plot", 
-                                       xTitle = "", yTitle = "", height = 400,
-                                       barmode = "group", orientation = "v") {
-  function(df, tab_id, tokenUI) {
-    p <- plot_ly(type = "bar", orientation = orientation)
-    for (trace in traces) {
-      if (trace$type == "bar") {
-        p <- p %>% add_trace(
-          x = if(orientation == "h") trace$x else trace$y,
-          y = if(orientation == "h") trace$y else trace$x,
-          name = trace$name,
-          marker = trace$marker,
-          text = trace$text,
-          hoverinfo = trace$hoverinfo
-        )
-      } else if (trace$type == "line") {
-        p <- p %>% add_trace(
-          x = trace$x,
-          y = trace$y,
-          name = trace$name,
-          type = "scatter",
-          mode = trace$mode
-        )
-      }
-    }
-    p %>% layout(title = title,
-                 xaxis = list(title = xTitle),
-                 yaxis = list(title = yTitle),
-                 barmode = barmode,
-                 paper_bgcolor = 'rgba(0,0,0,0)',
-                 plot_bgcolor = 'rgba(0,0,0,0)',
-                 showlegend = TRUE)
-  }
-}
-
-
-
 #----------------------------------------------------------------------------------#
-#------------------------- FONCTION GÉNÉRIQUE PRINCIPALE -------------------------#
+#------------------------- FONCTION GÉNÉRIQUE PRINCIPALE --------------------------#
 #----------------------------------------------------------------------------------#
 
 createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "", tokenUI = "", config = list()) {
   ns <- NS(id)
-  
-  # Configuration par défaut
+
   defaultConfig <- list(
     appName = appName,
     reportName = paste0(toupper(gsub("_", "", appName)), "_Report"),
-    showExcelDownload = TRUE,
-    excelDownloadLabel = "📦 Download all in Excel",
-    csvDownloadLabel = "📥 Download CSV",
-    dataFilter = NULL,
-    dataTransform = NULL,
-    tableTypes = "DT",
-    showTotals = TRUE,
-    totalPatterns = NULL,
-    percentageCols = NULL,
-    tableOptions = list(paging = FALSE, dom = 'tip', autoWidth = TRUE, ordering = TRUE),
-    filterPosition = "top",
     plots = list(),
-    customControls = list(),
     errorMessage = "Error.. please retry again",
     successRedirect = "#historyAnalysis"
   )
-  
   config <- modifyList(defaultConfig, config)
-  
+
   observe({
     req(reactiveReportObject$app)
     appSelected <- reactiveReportObject$app
-    if (!tolower(gsub_underscore_dash(" ", "_", appSelected)) %in% c(config$appName)) {
+    if (!tolower(gsub("_", "_", appSelected)) %in% c(config$appName)) {
       return()
     }
 
@@ -316,191 +161,35 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
         names(data_list) <- c("Report")
       }
 
-      if (!is.null(config$dataFilter)) {
-        data_list <- config$dataFilter(data_list)
-        if (length(data_list) == 0) {
-          hidePageSpinner()
-          runjs("toastr.error('No data found','',toastr.options.timeOut='500');")
-          return()
-        }
-      }
-
-      if (!is.null(config$dataTransform)) {
-        data_list <- config$dataTransform(data_list)
-      }
-
-      tabs <- Map(function(i) list(id = paste0(id, "-", i, "_", tokenUI), name = names(data_list)[i]), seq_len(length(data_list)))
-
+      tabs <- Map(function(i) list(id = paste0(id, "-", i, "_", tokenUI), name = names(data_list)[i]), seq_along(data_list))
       ui_root <- tags$div(
         id = paste0(id, "ContentAnalysis"),
         class = "row",
-        if (config$showExcelDownload) {
-          tags$div(class = "col-12 mb-2",
-            downloadButton(ns(paste0("download_all_data_excel_", tokenUI)), config$excelDownloadLabel, class = "btn btn-primary my-2")
-          )
-        },
         tags$div(class = "col-12", Generate_dashboard_tabs_table(tabs))
       )
-
       insertUI(selector = paste0("#", id, "Content"), ui = ui_root, immediate = TRUE)
 
       for (i in seq_along(data_list)) {
         local({
-          idx <- i
-          df <- data_list[[idx]]
-          table_name <- names(data_list)[idx]
-          tab_id <- paste0(id, "-", idx, "_", tokenUI)
+          df <- data_list[[i]]
+          table_name <- names(data_list)[i]
+          tab_id <- paste0(id, "-", i, "_", tokenUI)
 
-          insertUI(
-            selector = paste0("#nav-", tab_id),
-            where = "afterBegin",
-            ui = tags$div(
-              class = "my-3",
-              fluidRow(
-                column(12, class = "d-flex justify-content-between align-items-center mb-2",
-                  downloadButton(outputId = paste0("download_", tab_id, "_", tokenUI), label = config$csvDownloadLabel, class = "btn btn-sm btn-success")
-                )
-              ),
-              tags$div(id = paste0("plots_", tab_id))
+          # Crée les containers UI pour plots
+          for (plot_name in names(config$plots)) {
+            plot_output_id <- paste0(plot_name, "_", tab_id, "_", tokenUI)
+            insertUI(
+              selector = paste0("#plots_", tab_id),
+              where = "beforeEnd",
+              ui = plotlyOutput(outputId = plot_output_id, height = "500px")
             )
-          )
-
-          if (length(config$customControls) > 0) {
-            for (control in config$customControls) {
-              if (grepl(control$pattern, gsub_underscore_dash(" ", "_", tolower(table_name)))) {
-                insertUI(selector = paste0("#", paste0("plots_", tab_id)), where = "beforeEnd", ui = control$ui)
-                if (!is.null(control$logic)) {
-                  control$logic(df, table_name, tab_id, tokenUI)
-                }
-              }
-            }
+            # Ici on rend le plot avec renderPlotly
+            plot_func <- config$plots[[plot_name]]
+            output[[plot_output_id]] <- renderPlotly({
+              plot_func(df)
+            })
           }
-
-          # ✅ Partie corrigée : on applique renderPlotly UNE SEULE FOIS ici
-          if (length(config$plots) > 0) {
-            for (plot_config in config$plots) {
-              if (grepl(plot_config$pattern, gsub_underscore_dash(" ", "_", tolower(table_name)))) {
-                ui_content <- if (is.function(plot_config$ui)) {
-                  plot_config$ui(tab_id, tokenUI)
-                } else {
-                  plot_config$ui
-                }
-                insertUI(selector = paste0("#", paste0("plots_", tab_id)), where = "beforeEnd", ui = ui_content)
-                
-                for (plot_name in names(plot_config$plots)) {
-                  plot_spec <- plot_config$plots[[plot_name]]
-                  plot_output_id <- paste0(plot_name, "_", tab_id, "_", tokenUI)
-                  
-                  output[[plot_output_id]] <- renderPlotly({
-                    req(df)
-                    plot_spec(df, tab_id, tokenUI)   # toutes les fonctions renvoient plotly brut
-                  })
-                }
-              }
-            }
-          }
-
-          if (!(grepl("interface_alloc", gsub_underscore_dash(" ", "_", tolower(table_name))))) {
-            table_type <- if (is.function(config$tableTypes)) {
-              config$tableTypes(data_list, table_name, df)
-            } else if (is.character(config$tableTypes) && length(config$tableTypes) == 1) {
-              config$tableTypes
-            } else if (is.character(config$tableTypes) && length(config$tableTypes) == length(data_list)) {
-              config$tableTypes[idx]
-            } else {
-              "DT"
-            }
-            
-            if (table_type == "DT") {
-              output[[paste0("td_dashboard_", tab_id)]] <- renderDT({
-                num_cols <- names(df)[sapply(df, is.numeric)]
-                df_clean <- df
-                
-                show_total <- FALSE
-                if (config$showTotals) {
-                  if (is.null(config$totalPatterns)) {
-                    has_numeric_cols <- any(sapply(df, is.numeric))
-                    has_multiple_rows <- nrow(df) > 1
-                    has_summary_indicators <- any(grepl("total|sum|aggregate|summary|amount|value|count", tolower(names(df))))
-                    table_name_suggests_totals <- grepl("report|summary|total|aggregate|calcul|kpi|intermediate|weighted|stress", 
-                                                      gsub_underscore_dash(" ", "_", tolower(table_name)))
-                    show_total <- has_numeric_cols && has_multiple_rows && (has_summary_indicators || table_name_suggests_totals)
-                  } else if (is.function(config$totalPatterns)) {
-                    show_total <- config$totalPatterns(table_name, df)
-                  } else {
-                    show_total <- any(sapply(config$totalPatterns, function(pattern) {
-                      grepl(pattern, gsub_underscore_dash(" ", "_", tolower(table_name)))
-                    }))
-                  }
-                }
-                
-                if (show_total && length(num_cols) > 0) {
-                  total_row <- df_clean[, lapply(.SD, function(x) if (is.numeric(x)) sum(x, na.rm = TRUE) else NA), .SDcols = num_cols]
-                  total_row[, setdiff(names(df_clean), num_cols) := lapply(setdiff(names(df_clean), num_cols), function(x) "Total")]
-                  df_clean <- rbind(df_clean, total_row, fill = TRUE)
-                }
-                
-                dt <- datatable(df_clean, rownames = FALSE, options = config$tableOptions, filter = config$filterPosition)
-                
-                percentage_cols <- if (is.null(config$percentageCols)) {
-                  numeric_cols <- names(df)[sapply(df, is.numeric)]
-                  name_indicators <- grepl("weight|percent|rate|ratio|pct|share|allocation|distribution", tolower(numeric_cols))
-                  content_indicators <- sapply(numeric_cols, function(col) {
-                    values <- df[[col]]
-                    if (length(values) == 0) return(FALSE)
-                    all_values <- values[!is.na(values)]
-                    if (length(all_values) == 0) return(FALSE)
-                    max_val <- max(all_values, na.rm = TRUE)
-                    min_val <- min(all_values, na.rm = TRUE)
-                    (max_val <= 1.1 && min_val >= -0.1) || (max_val <= 110 && min_val >= -10 && max_val > 1)
-                  })
-                  numeric_cols[name_indicators | content_indicators]
-                } else if (is.function(config$percentageCols)) {
-                  config$percentageCols(df)
-                } else {
-                  config$percentageCols
-                }
-                
-                for (col in num_cols) {
-                  if (col %in% percentage_cols) {
-                    dt <- DT::formatPercentage(dt, columns = col, digits = 2)
-                  } else {
-                    dt <- DT::formatCurrency(dt, columns = col, currency = "", digits = 0, interval = 3, mark = " ")
-                  }
-                }
-                
-                if (show_total) {
-                  dt <- DT::formatStyle(dt, columns = 0, target = "row", rows = nrow(df_clean), 
-                                        fontWeight = "bold", backgroundColor = "#f9f9f9")
-                }
-                
-                dt
-              })
-            } else if (table_type == "RHandsontable") {
-              output[[paste0("td_dashboard_", tab_id)]] <- renderRHandsontable({
-                rhandsontable(df, readOnly = FALSE, width = "100%", height = 400) %>%
-                  hot_cols(columnSorting = TRUE) %>%
-                  hot_context_menu(allowRowEdit = TRUE, allowColEdit = TRUE)
-              })
-            }
-          }
-
-          output[[paste0("download_", tab_id, "_", tokenUI)]] <- downloadHandler(
-            filename = function() paste0(gsub("[\\/:*?\"<>|]", "_", table_name), ".csv"),
-            content = function(file) {
-              fwrite(df, file, row.names = FALSE, sep = user_separator(), quote = TRUE)
-            }
-          )
         })
-      }
-
-      if (config$showExcelDownload) {
-        output[[ns(paste0("download_all_data_excel_", tokenUI))]] <- downloadHandler(
-          filename = function() paste0(config$reportName, "_", Sys.Date(), ".xlsx"),
-          content = function(file) {
-            openxlsx::write.xlsx(data_list, file)
-          }
-        )
       }
 
       hidePageSpinner()
@@ -513,11 +202,6 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
   })
 }
 
-
-#----------------------------------------------------------------------------------#
-#------------------------- FONCTIONS SPÉCIALISÉES --------------------------------#
-#----------------------------------------------------------------------------------#
-
 #----------------------------------------------------------------------------------#
 #------------------------- FONCTION SPÉCIALISÉE RF LIQUIDITY ----------------------#
 #----------------------------------------------------------------------------------#
@@ -526,128 +210,18 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
   config <- list(
     appName = "rf_liquidity",
     reportName = "RiskFrameworkLiquidity_Report",
-    tableTypes = "DT",  
-    totalPatterns = c("intermediate_report", "weighted", "stress_impact"),  
-    percentageCols = c("lrm_weight", "Impact Weighted Resource"),  
-    
     plots = list(
-      # 📊 Intermediate report plots
-      list(
-        pattern = "intermediate_report",
-        ui = function(tab_id, tokenUI) {
-          fluidRow(
-            column(12, class = "col-12 col-md-4", 
-                   plotlyOutput(outputId = paste0("plot_impact_", tab_id, "_", tokenUI), height = "550px")),
-            column(12, class = "col-12 col-md-4", 
-                   plotlyOutput(outputId = paste0("plot_waterfall_", tab_id, "_", tokenUI), height = "550px")),
-            column(12, class = "col-12 col-md-4", 
-                   plotlyOutput(outputId = paste0("plot_pie_", tab_id, "_", tokenUI), height = "550px"))
-          )
-        },
-        plots = list(
-          plot_impact = createGenericBarPlot(
-            xVar = "lrm_classification", 
-            yVar = "Ressources_before_haircut",
-            colorVar = "lrm_classification",
-            title = "Resources before haircut",
-            xTitle = "",
-            yTitle = "Impact (%)",
-            height = 550,
-            textVar = "Ressources_before_haircut",
-            hoverinfo = "text+y"
-          ),
-          plot_waterfall = createGenericWaterfallPlot(
-            labelVar = "lrm_classification",
-            valueVar = "Financial_Impact",
-            title = "Financial Impact",
-            xTitle = "",
-            yTitle = "Financial Impact (€)",
-            height = 550,
-            valueTransform = function(x) -x
-          ),
-          plot_pie = createGenericPiePlot(
-            labelsVar = "lrm_classification",
-            valuesVar = "Weighted_resources_after_encumbrance",
-            title = "Weighted Resources After Encumbrance",
-            height = 550
-          )
-        )
-      ),
-      
-      # 📊 Stress impact report plots
-      list(
-        pattern = "stress_impact_report",
-        ui = function(tab_id, tokenUI) {
-          fluidRow(
-            column(12, class = "col-12 col-md-4 offset-md-4", 
-                   plotlyOutput(outputId = paste0("plot_pie_", tab_id, "_", tokenUI), height = "550px"))
-          )
-        },
-        plots = list(
-          plot_pie = createGenericPiePlot(
-            labelsVar = "risk_module",
-            valuesVar = "external_figures",
-            title = "External Figures",
-            height = 550
-          )
-        )
-      ),
-      
-      # 📊 Liquidity report plots
-      list(
-        pattern = "liquidity_report",
-        ui = function(tab_id, tokenUI) {
-          fluidRow(
-            column(12, 
-                   plotlyOutput(outputId = paste0("plot_liquidity_", tab_id, "_", tokenUI), height = "200px"))
-          )
-        },
-        plots = list(
-          plot_liquidity = function(df, tab_id, tokenUI) {
-            # Transformation des données
-            df_vals <- df %>%
-              dplyr::filter(get(names(df)[1]) %in% 
-                              c("Excess liquidity", "Stress impact", "Available weighted resources")) %>%
-              tidyr::pivot_wider(names_from = names(df)[1], values_from = `New methodology`) %>%
-              dplyr::mutate(stress = `Stress impact`, excess = `Excess liquidity`)
-            
-            traces <- list(
-              list(
-                type = "bar",
-                x = df_vals$`Stress impact`,
-                y = "Available weighted resources",
-                name = "Stress impact",
-                marker = list(color = 'rgba(255, 99, 71, 0.8)'),
-                text = format(df_vals$`Stress impact`, big.mark = " "),
-                hoverinfo = "text+x"
-              ),
-              list(
-                type = "bar",
-                x = df_vals$`Excess liquidity`,
-                y = "Available weighted resources",
-                name = "Excess liquidity",
-                marker = list(color = 'rgba(0, 200, 0, 0.7)'),
-                text = format(df_vals$`Excess liquidity`, big.mark = " "),
-                hoverinfo = "text+x"
-              )
-            )
-            
-            # ✅ Retourne un plotly brut
-            createGenericMultiTracePlot(
-              traces = traces,
-              title = "",
-              xTitle = "Amount (mEUR)",
-              yTitle = "",
-              height = 200,
-              barmode = "stack",
-              orientation = "h"
-            )(df, tab_id, tokenUI)
-          }
-        )
-      )
+      plot_impact = createGenericBarPlot("lrm_classification", "Ressources_before_haircut",
+                                         colorVar = "lrm_classification",
+                                         title = "Resources before haircut",
+                                         yTitle = "Impact (%)"),
+      plot_waterfall = createGenericWaterfallPlot("lrm_classification", "Financial_Impact",
+                                                  title = "Financial Impact",
+                                                  yTitle = "Financial Impact (€)",
+                                                  valueTransform = function(x) -x),
+      plot_pie = createGenericPiePlot("lrm_classification", "Weighted_resources_after_encumbrance")
     )
   )
-  
   createGenericDashboardUI(id, reactiveReportObject, "rf_liquidity", user, tokenUI, config)
 }
 

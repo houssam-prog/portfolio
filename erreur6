@@ -479,7 +479,13 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
           if (length(config$plots) > 0) {
             for (plot_config in config$plots) {
               if (grepl(plot_config$pattern, gsub_underscore_dash(" ", "_", tolower(table_name)))) {
-                insertUI(selector = paste0("#", paste0("plots_", tab_id)), where = "beforeEnd", ui = plot_config$ui)
+                # Call UI function with parameters if it's a function
+                ui_content <- if (is.function(plot_config$ui)) {
+                  plot_config$ui(tab_id, tokenUI)
+                } else {
+                  plot_config$ui
+                }
+                insertUI(selector = paste0("#", paste0("plots_", tab_id)), where = "beforeEnd", ui = ui_content)
                 
                 # Add plot logic
                 for (plot_name in names(plot_config$plots)) {
@@ -647,11 +653,13 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
       # Intermediate report plots
       list(
         pattern = "intermediate_report",
-        ui = fluidRow(
-          column(12, class = "col-12 col-md-4", plotlyOutput(outputId = "plot_impact", height = "550px")),
-          column(12, class = "col-12 col-md-4", plotlyOutput(outputId = "plot_waterfall", height = "550px")),
-          column(12, class = "col-12 col-md-4", plotlyOutput(outputId = "plot_pie", height = "550px"))
-        ),
+        ui = function(tab_id, tokenUI) {
+          fluidRow(
+            column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_impact_", tab_id, "_", tokenUI), height = "550px")),
+            column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_waterfall_", tab_id, "_", tokenUI), height = "550px")),
+            column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_pie_", tab_id, "_", tokenUI), height = "550px"))
+          )
+        },
         plots = list(
           plot_impact = createGenericBarPlot(
             xVar = "lrm_classification", 
@@ -684,9 +692,11 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
       # Stress impact report plots
       list(
         pattern = "stress_impact_report",
-        ui = fluidRow(
-          column(12, class = "col-12 col-md-4 offset-md-4", plotlyOutput(outputId = "plot_pie", height = "550px"))
-        ),
+        ui = function(tab_id, tokenUI) {
+          fluidRow(
+            column(12, class = "col-12 col-md-4 offset-md-4", plotlyOutput(outputId = paste0("plot_pie_", tab_id, "_", tokenUI), height = "550px"))
+          )
+        },
         plots = list(
           plot_pie = createGenericPiePlot(
             labelsVar = "risk_module",
@@ -699,9 +709,11 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
       # Liquidity report plots
       list(
         pattern = "liquidity_report",
-        ui = fluidRow(
-          column(12, plotlyOutput(outputId = "plot_liquidity", height = "200px"))
-        ),
+        ui = function(tab_id, tokenUI) {
+          fluidRow(
+            column(12, plotlyOutput(outputId = paste0("plot_liquidity_", tab_id, "_", tokenUI), height = "200px"))
+          )
+        },
         plots = list(
           plot_liquidity = function(df, tab_id, tokenUI) {
             renderPlotly({

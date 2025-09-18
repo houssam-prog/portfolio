@@ -518,23 +518,30 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
 #------------------------- FONCTIONS SPÉCIALISÉES --------------------------------#
 #----------------------------------------------------------------------------------#
 
-#' Create RFLiquidity UI using the generic function
+#----------------------------------------------------------------------------------#
+#------------------------- FONCTION SPÉCIALISÉE RF LIQUIDITY ----------------------#
+#----------------------------------------------------------------------------------#
+
 createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {
   config <- list(
     appName = "rf_liquidity",
     reportName = "RiskFrameworkLiquidity_Report",
-    tableTypes = "DT",  # Toutes les tables sont des DataTables
-    totalPatterns = c("intermediate_report", "weighted", "stress_impact"),  # Patterns spécifiques pour RF Liquidity
-    percentageCols = c("lrm_weight", "Impact Weighted Resource"),  # Colonnes de pourcentage spécifiques
+    tableTypes = "DT",  
+    totalPatterns = c("intermediate_report", "weighted", "stress_impact"),  
+    percentageCols = c("lrm_weight", "Impact Weighted Resource"),  
+    
     plots = list(
-      # Intermediate report plots
+      # 📊 Intermediate report plots
       list(
         pattern = "intermediate_report",
         ui = function(tab_id, tokenUI) {
           fluidRow(
-            column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_impact_", tab_id, "_", tokenUI), height = "550px")),
-            column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_waterfall_", tab_id, "_", tokenUI), height = "550px")),
-            column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_pie_", tab_id, "_", tokenUI), height = "550px"))
+            column(12, class = "col-12 col-md-4", 
+                   plotlyOutput(outputId = paste0("plot_impact_", tab_id, "_", tokenUI), height = "550px")),
+            column(12, class = "col-12 col-md-4", 
+                   plotlyOutput(outputId = paste0("plot_waterfall_", tab_id, "_", tokenUI), height = "550px")),
+            column(12, class = "col-12 col-md-4", 
+                   plotlyOutput(outputId = paste0("plot_pie_", tab_id, "_", tokenUI), height = "550px"))
           )
         },
         plots = list(
@@ -566,12 +573,14 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
           )
         )
       ),
-      # Stress impact report plots
+      
+      # 📊 Stress impact report plots
       list(
         pattern = "stress_impact_report",
         ui = function(tab_id, tokenUI) {
           fluidRow(
-            column(12, class = "col-12 col-md-4 offset-md-4", plotlyOutput(outputId = paste0("plot_pie_", tab_id, "_", tokenUI), height = "550px"))
+            column(12, class = "col-12 col-md-4 offset-md-4", 
+                   plotlyOutput(outputId = paste0("plot_pie_", tab_id, "_", tokenUI), height = "550px"))
           )
         },
         plots = list(
@@ -583,53 +592,56 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
           )
         )
       ),
-      # Liquidity report plots
+      
+      # 📊 Liquidity report plots
       list(
         pattern = "liquidity_report",
         ui = function(tab_id, tokenUI) {
           fluidRow(
-            column(12, plotlyOutput(outputId = paste0("plot_liquidity_", tab_id, "_", tokenUI), height = "200px"))
+            column(12, 
+                   plotlyOutput(outputId = paste0("plot_liquidity_", tab_id, "_", tokenUI), height = "200px"))
           )
         },
         plots = list(
           plot_liquidity = function(df, tab_id, tokenUI) {
-            renderPlotly({
-              df_vals <- df %>%
-                dplyr::filter(get(names(df)[1]) %in% c("Excess liquidity", "Stress impact", "Available weighted resources")) %>%
-                tidyr::pivot_wider(names_from = names(df)[1], values_from = `New methodology`) %>%
-                dplyr::mutate(stress = `Stress impact`, excess = `Excess liquidity`)
-              
-              traces <- list(
-                list(
-                  type = "bar",
-                  x = df_vals$`Stress impact`,
-                  y = "Available weighted resources",
-                  name = "Stress impact",
-                  marker = list(color = 'rgba(255, 99, 71, 0.8)'),
-                  text = format(df_vals$`Stress impact`, big.mark = " "),
-                  hoverinfo = "text+x"
-                ),
-                list(
-                  type = "bar",
-                  x = df_vals$`Excess liquidity`,
-                  y = "Available weighted resources",
-                  name = "Excess liquidity",
-                  marker = list(color = 'rgba(0, 200, 0, 0.7)'),
-                  text = format(df_vals$`Excess liquidity`, big.mark = " "),
-                  hoverinfo = "text+x"
-                )
+            # Transformation des données
+            df_vals <- df %>%
+              dplyr::filter(get(names(df)[1]) %in% 
+                              c("Excess liquidity", "Stress impact", "Available weighted resources")) %>%
+              tidyr::pivot_wider(names_from = names(df)[1], values_from = `New methodology`) %>%
+              dplyr::mutate(stress = `Stress impact`, excess = `Excess liquidity`)
+            
+            traces <- list(
+              list(
+                type = "bar",
+                x = df_vals$`Stress impact`,
+                y = "Available weighted resources",
+                name = "Stress impact",
+                marker = list(color = 'rgba(255, 99, 71, 0.8)'),
+                text = format(df_vals$`Stress impact`, big.mark = " "),
+                hoverinfo = "text+x"
+              ),
+              list(
+                type = "bar",
+                x = df_vals$`Excess liquidity`,
+                y = "Available weighted resources",
+                name = "Excess liquidity",
+                marker = list(color = 'rgba(0, 200, 0, 0.7)'),
+                text = format(df_vals$`Excess liquidity`, big.mark = " "),
+                hoverinfo = "text+x"
               )
-              
-              createGenericMultiTracePlot(
-                traces = traces,
-                title = "",
-                xTitle = "Amount (mEUR)",
-                yTitle = "",
-                height = 200,
-                barmode = "stack",
-                orientation = "h"
-              )(df, tab_id, tokenUI)
-            })
+            )
+            
+            # ✅ Retourne un plotly brut
+            createGenericMultiTracePlot(
+              traces = traces,
+              title = "",
+              xTitle = "Amount (mEUR)",
+              yTitle = "",
+              height = 200,
+              barmode = "stack",
+              orientation = "h"
+            )(df, tab_id, tokenUI)
           }
         )
       )
@@ -638,6 +650,8 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
   
   createGenericDashboardUI(id, reactiveReportObject, "rf_liquidity", user, tokenUI, config)
 }
+
+
 
 #' Create IPLocalMain UI using the generic function
 createIPLocalMainUI <- function(id, reactiveReportObject, user = "", tokenUI = "") {

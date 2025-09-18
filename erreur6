@@ -864,3 +864,23 @@ launch_dashboard_server <- function(appSelected, reactiveReportObject, type = "c
     createAMFeesUI(type, reactiveReportObject, user = isolate(user_email()), tokenUI = generate_token(5))
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Generate_dashboard_tabs_table <- function(tabs){
+  content <- paste(create_nav_tabs(tabs), create_tab_content(tabs))
+  return(HTML(content))
+}

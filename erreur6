@@ -487,15 +487,19 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
                 }
                 insertUI(selector = paste0("#", paste0("plots_", tab_id)), where = "beforeEnd", ui = ui_content)
                 
-                # Add plot logic
+                # Add plot logic - assign the renderPlotly functions directly
                 for (plot_name in names(plot_config$plots)) {
                   plot_spec <- plot_config$plots[[plot_name]]
+                  plot_output_id <- paste0(plot_name, "_", tab_id, "_", tokenUI)
+                  
                   if (is.function(plot_spec)) {
-                    output[[paste0(plot_name, "_", tab_id, "_", tokenUI)]] <- plot_spec(df, tab_id, tokenUI)
+                    # plot_spec is a function that returns renderPlotly(), call it with the data
+                    output[[plot_output_id]] <- plot_spec(df, tab_id, tokenUI)
                   } else if (is.list(plot_spec) && !is.null(plot_spec$renderer)) {
-                    output[[paste0(plot_name, "_", tab_id, "_", tokenUI)]] <- plot_spec$renderer(df, tab_id, tokenUI)
+                    output[[plot_output_id]] <- plot_spec$renderer(df, tab_id, tokenUI)
                   } else {
-                    output[[paste0(plot_name, "_", tab_id, "_", tokenUI)]] <- plot_spec
+                    # If it's a direct renderPlotly object, assign it directly
+                    output[[plot_output_id]] <- plot_spec
                   }
                 }
               }
@@ -868,24 +872,4 @@ launch_dashboard_server <- function(appSelected, reactiveReportObject, type = "c
   if(gsub_underscore_dash(" ", "_", tolower(appSelected)) %in% c("am_fees")) {
     createAMFeesUI(type, reactiveReportObject, user = isolate(user_email()), tokenUI = generate_token(5))
   }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Generate_dashboard_tabs_table <- function(tabs){
-  content <- paste(create_nav_tabs(tabs), create_tab_content(tabs))
-  return(HTML(content))
 }

@@ -721,9 +721,9 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
     totalPatterns = c("intermediate_report", "weighted", "stress_impact"),  # Patterns spécifiques pour RF Liquidity
     percentageCols = c("lrm_weight", "Impact Weighted Resource"),  # Colonnes de pourcentage spécifiques
     plots = list(
-      # PnL Weighted plots
+      # Intermediate report plots (code original)
       list(
-        pattern = "pnl.*w.*ght.*d|w.*ght.*d.*pnl|pnl|weighted",
+        pattern = "intermediate_report",
         ui = function(tab_id, tokenUI) {
           fluidRow(
             column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_impact_", tab_id, "_", tokenUI), height = "550px")),
@@ -733,6 +733,88 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
         },
         plots = list(
           plot_impact = function(df, tab_id, tokenUI) {
+            renderPlotly({
+              req(df$lrm_classification, df$Ressources_before_haircut)
+              plot_ly(df,
+                x = ~lrm_classification,
+                y = ~Ressources_before_haircut,
+                type = "bar",
+                text = ~scales::percent(Ressources_before_haircut, accuracy = 0.1),
+                hoverinfo = "text+y",
+                color = ~lrm_classification
+              ) %>%
+              layout(title = "Resources before haircut", xaxis = list(title = ""), yaxis = list(title = "Impact (%)")) %>%
+              layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
+            })
+          },
+          plot_waterfall = function(df, tab_id, tokenUI) {
+            renderPlotly({
+              req(df$lrm_classification, df$Financial_Impact)
+              df_agg <- df %>%
+                dplyr::group_by(lrm_classification) %>%
+                dplyr::summarise(Financial_Impact = sum(-Financial_Impact, na.rm = TRUE)) %>%
+                dplyr::arrange(desc(abs(Financial_Impact))) %>%
+                dplyr::mutate(
+                  prefix = paste0(LETTERS[seq_along(lrm_classification)], ". "),
+                  label = paste0(prefix, lrm_classification),
+                  measure = "relative",
+                  text = format(Financial_Impact, big.mark = " ")
+                )
+              total <- data.frame(
+                label = "Total",
+                Financial_Impact = sum(df_agg$Financial_Impact, na.rm = TRUE),
+                measure = "total",
+                text = format(sum(df_agg$Financial_Impact, na.rm = TRUE), big.mark = " ")
+              )
+              df_waterfall <- dplyr::bind_rows(df_agg[, c("label", "Financial_Impact", "measure", "text")], total)
+              plot_ly(
+                df_waterfall,
+                type = "waterfall",
+                x = ~label,
+                y = ~Financial_Impact,
+                text = ~text,
+                measure = ~measure,
+                textposition = "outside",
+                connector = list(line = list(color = "rgba(63, 63, 63, 0.7)"))
+              ) %>%
+                layout(
+                  title = "Financial Impact",
+                  xaxis = list(title = "", tickangle = -45),
+                  yaxis = list(title = "Financial Impact (€)"),
+                  paper_bgcolor = 'rgba(0,0,0,0)',
+                  plot_bgcolor = 'rgba(0,0,0,0)'
+                )
+            })
+          },
+          plot_pie = function(df, tab_id, tokenUI) {
+            renderPlotly({
+              req(df$lrm_classification, df$Weighted_resources_after_encumbrance)
+              plot_ly(
+                df,
+                labels = ~lrm_classification,
+                values = ~abs(Weighted_resources_after_encumbrance),
+                type = "pie",
+                textinfo = "label+percent",
+                hoverinfo = "label+value+percent"
+              ) %>%
+                layout(title = "Weighted Resources After Encumbrance", showlegend = TRUE) %>%
+                layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
+            })
+          }
+        )
+      ),
+      # PnL tables (custom pattern for your data)
+      list(
+        pattern = "pnl|weighted",
+        ui = function(tab_id, tokenUI) {
+          fluidRow(
+            column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_pnl_bar_", tab_id, "_", tokenUI), height = "550px")),
+            column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_pnl_waterfall_", tab_id, "_", tokenUI), height = "550px")),
+            column(12, class = "col-12 col-md-4", plotlyOutput(outputId = paste0("plot_pnl_pie_", tab_id, "_", tokenUI), height = "550px"))
+          )
+        },
+        plots = list(
+          plot_pnl_bar = function(df, tab_id, tokenUI) {
             renderPlotly({
               req(df$lrm_classification, df$PnL)
               plot_ly(df,
@@ -747,7 +829,7 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
               layout(paper_bgcolor = 'rgba(0,0,0,0)', plot_bgcolor = 'rgba(0,0,0,0)')
             })
           },
-          plot_waterfall = function(df, tab_id, tokenUI) {
+          plot_pnl_waterfall = function(df, tab_id, tokenUI) {
             renderPlotly({
               req(df$lrm_classification, df$`Weighted PnL`)
               df_agg <- df %>%
@@ -786,21 +868,16 @@ createRFLiquidityUI <- function(id, reactiveReportObject, user = "", tokenUI = "
                 )
             })
           },
-          plot_pie = function(df, tab_id, tokenUI) {
+          plot_pnl_pie = function(df, tab_id, tokenUI) {
             renderPlotly({
-              req(df$lrm_classification, df$lrm_weight)
-              # Aggregate by classification to get pie chart data
+              req(df$lrm_classification, df$`Weighted PnL`)
               df_pie <- df %>%
                 dplyr::group_by(lrm_classification) %>%
-                dplyr::summarise(
-                  weight_sum = sum(lrm_weight, na.rm = TRUE),
-                  weighted_pnl_sum = sum(abs(`Weighted PnL`), na.rm = TRUE),
-                  .groups = 'drop'
-                )
+                dplyr::summarise(weighted_pnl_abs = sum(abs(`Weighted PnL`), na.rm = TRUE), .groups = 'drop')
               plot_ly(
                 df_pie,
                 labels = ~lrm_classification,
-                values = ~weighted_pnl_sum,
+                values = ~weighted_pnl_abs,
                 type = "pie",
                 textinfo = "label+percent",
                 hoverinfo = "label+value+percent"

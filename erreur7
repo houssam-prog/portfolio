@@ -992,3 +992,24 @@ launch_dashboard_server <- function(appSelected, reactiveReportObject, type = "c
     createAMFeesUI(type, reactiveReportObject, user = isolate(user_email()), tokenUI = generate_token(5))
   }
 }
+
+
+
+🔍 DEBUG: Starting plot configuration check...
+🔍 DEBUG: Number of plot configs: 0 
+🔍 DEBUG: ===== Processing table 3 =====
+🔍 DEBUG: Table name: PnL Weighted 
+🔍 DEBUG: Tab ID: currentRun-3_kBLVD 
+🔍 DEBUG: Data dimensions: 131 x 5 
+🔍 DEBUG: Column names: codename, PnL, lrm_classification, lrm_weight, Weighted PnL 
+🔍 DEBUG: First few rows:
+                                                      codename             PnL
+                                                        <char>           <num>
+1: AWA3-Corporate bonds-Floating Rate Note-crv_EUR_AA_FIN-ISIN        0.576024
+2:     AWA3-Corporate bonds-Fixed Rate Bond-crv_USD_A_FIN-ISIN -1294287.408185
+3:     AWA3-Corporate bonds-Fixed Rate Bond-crv_EUR_A_IND-ISIN -6735251.654724
+   lrm_classification lrm_weight    Weighted PnL
+               <char>      <num>           <num>
+1: Corporate bonds IG       0.94        0.541462
+2: Corporate bonds IG       0.94 -1216630.163694
+3: Corporate bonds IG       0.94 -6331136.555441

@@ -468,105 +468,136 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
             }
           }
 
-          # APPROCHE FACTORISÉE: Dashboard fait appel aux fonctions de plots
-          cat("🔍 DASHBOARD: Starting plot generation...\n")
-          cat("🔍 DASHBOARD: Table:", table_name, "\n")
-          cat("🔍 DASHBOARD: Columns:", paste(names(df), collapse = ", "), "\n")
-          cat("🔍 DASHBOARD: Rows:", nrow(df), "\n")
+          # APPROCHE INTERACTIVE: L'utilisateur choisit ses graphiques
+          cat("🔍 DASHBOARD: Setting up interactive plot selection...\n")
           
-          # Fonction dashboard qui fait appel aux fonctions de plots factorisées
-          generate_dashboard_plots <- function(df, table_name, tab_id, tokenUI) {
-            cat("🔍 DASHBOARD: Generating plots for dashboard...\n")
+          # Créer le bouton pour ouvrir la modale
+          insertUI(
+            selector = paste0("#plots_", tab_id),
+            where = "beforeEnd",
+            ui = tags$div(
+              style = "margin: 15px 0;",
+              actionButton(
+                inputId = paste0("openPlotModal_", tab_id, "_", tokenUI),
+                label = "📊 Créer un graphique",
+                class = "btn-primary",
+                style = "margin-bottom: 20px;"
+              ),
+              # Container pour les graphiques
+              div(id = paste0("plotContainer_", tab_id, "_", tokenUI))
+            )
+          )
+          
+          # Créer la modale de configuration
+          observeEvent(input[[paste0("openPlotModal_", tab_id, "_", tokenUI)]], {
+            # Obtenir les colonnes disponibles
+            numeric_cols <- names(df)[sapply(df, is.numeric)]
+            categorical_cols <- names(df)[sapply(df, function(x) is.character(x) || is.factor(x))]
             
-            tryCatch({
-              # 1. Créer les plots en utilisant les fonctions factorisées
-              intelligent_plots <- createIntelligentPlots(df, max_plots = 3)
+            showModal(modalDialog(
+              title = "Configuration du graphique",
               
-              if (length(intelligent_plots) > 0) {
-                cat("✅ DASHBOARD: Generated", length(intelligent_plots), "plots\n")
-                cat("🔍 DASHBOARD: Plot types:", names(intelligent_plots), "\n")
-                
-                # 2. Créer l'UI pour afficher les plots
-                plot_columns <- list()
-                plot_outputs <- list()
-                
-                for (i in seq_along(intelligent_plots)) {
-                  plot_name <- names(intelligent_plots)[i]
-                  plot_id <- paste0("dashboard_", plot_name, "_", tab_id, "_", tokenUI)
-                  
-                  # Créer la colonne UI
-                  plot_columns[[i]] <- column(
-                    width = if(length(intelligent_plots) == 1) 12 else if(length(intelligent_plots) == 2) 6 else 4,
-                    plotlyOutput(outputId = plot_id, height = "450px")
-                  )
-                  
-                  # Créer l'output renderPlotly qui fait appel à la fonction de plot
-                  output[[plot_id]] <- renderPlotly({
-                    cat("🔍 DASHBOARD: Rendering", plot_name, "plot\n")
-                    intelligent_plots[[i]]  # Appel direct à la fonction de plot factorisée
-                  })
-                  
-                  cat("✅ DASHBOARD: Created output for", plot_name, "with ID:", plot_id, "\n")
-                }
-                
-                # 3. Insérer l'UI avec tous les plots
-                insertUI(
-                  selector = paste0("#plots_", tab_id),
-                  where = "beforeEnd",
-                  ui = tags$div(
-                    style = "margin: 15px 0;",
-                    h4("📊 Dashboard Analytics", style = "color: #2c3e50; margin-bottom: 20px;"),
-                    do.call(fluidRow, plot_columns)
-                  )
+              # Type de graphique
+              selectInput(
+                paste0("plotType_", tab_id, "_", tokenUI),
+                "Type de graphique:",
+                choices = c(
+                  "Barres" = "bar",
+                  "Camembert" = "pie",
+                  "Nuage de points" = "scatter",
+                  "Histogramme" = "histogram",
+                  "Boîte à moustaches" = "box",
+                  "Cascade" = "waterfall"
                 )
-                
-                cat("✅ DASHBOARD: UI inserted successfully\n")
-                return(length(intelligent_plots))
-                
-              } else {
-                cat("ℹ️ DASHBOARD: No suitable plots could be generated\n")
-                
-                # Afficher un message informatif
-                insertUI(
-                  selector = paste0("#plots_", tab_id),
-                  where = "beforeEnd",
-                  ui = tags$div(
-                    style = "margin: 15px 0; padding: 20px; background-color: #f8f9fa; border-left: 4px solid #17a2b8;",
-                    h5("ℹ️ Information", style = "color: #17a2b8;"),
-                    p("No suitable columns found for generating plots. Table contains:",
-                      style = "margin: 5px 0;"),
-                    tags$ul(
-                      lapply(names(df), function(col) {
-                        tags$li(paste(col, ":", class(df[[col]])[1]))
-                      })
-                    )
-                  )
-                )
-                return(0)
-              }
+              ),
               
-            }, error = function(e) {
-              cat("❌ DASHBOARD: Error generating plots:", e$message, "\n")
-              print(e)
+              # Colonnes X et Y
+              selectInput(
+                paste0("xCol_", tab_id, "_", tokenUI),
+                "Colonne X:",
+                choices = c("", categorical_cols, numeric_cols)
+              ),
               
-              # Afficher un message d'erreur informatif
-              insertUI(
-                selector = paste0("#plots_", tab_id),
-                where = "beforeEnd",
-                ui = tags$div(
-                  style = "margin: 15px 0; padding: 20px; background-color: #f8d7da; border-left: 4px solid #dc3545;",
-                  h5("❌ Plot Generation Error", style = "color: #dc3545;"),
-                  p("Could not generate plots for this table:", style = "margin: 5px 0;"),
-                  code(e$message, style = "background-color: #fff; padding: 5px;")
+              selectInput(
+                paste0("yCol_", tab_id, "_", tokenUI),
+                "Colonne Y:",
+                choices = c("", numeric_cols)
+              ),
+              
+              # Colonne de couleur (groupement)
+              selectInput(
+                paste0("colorCol_", tab_id, "_", tokenUI),
+                "Colonne de groupement (optionnel):",
+                choices = c("Aucun" = "", categorical_cols)
+              ),
+              
+              # Titre du graphique
+              textInput(
+                paste0("plotTitle_", tab_id, "_", tokenUI),
+                "Titre du graphique:",
+                value = "Mon graphique"
+              ),
+              
+              footer = tagList(
+                modalButton("Annuler"),
+                actionButton(
+                  paste0("createPlot_", tab_id, "_", tokenUI),
+                  "Créer le graphique",
+                  class = "btn-primary"
                 )
-              )
-              return(0)
-            })
-          }
+              ),
+              size = "l"
+            ))
+          })
           
-          # Appeler la fonction dashboard qui orchestre les plots
-          plots_count <- generate_dashboard_plots(df, table_name, tab_id, tokenUI)
-          cat("✅ DASHBOARD: Successfully processed", plots_count, "plots for table:", table_name, "\n")
+          # Observer pour créer le graphique
+          observeEvent(input[[paste0("createPlot_", tab_id, "_", tokenUI)]], {
+            # Récupérer les valeurs
+            plot_type <- input[[paste0("plotType_", tab_id, "_", tokenUI)]]
+            x_col <- input[[paste0("xCol_", tab_id, "_", tokenUI)]]
+            y_col <- input[[paste0("yCol_", tab_id, "_", tokenUI)]]
+            color_col <- input[[paste0("colorCol_", tab_id, "_", tokenUI)]]
+            title <- input[[paste0("plotTitle_", tab_id, "_", tokenUI)]]
+            
+            if (color_col == "") color_col <- NULL
+            
+            # Générer un ID unique pour ce graphique
+            plot_id <- paste0("plot_", plot_type, "_", tab_id, "_", tokenUI, "_", round(runif(1) * 1000))
+            
+            # Insérer le container pour le graphique
+            insertUI(
+              selector = paste0("#plotContainer_", tab_id, "_", tokenUI),
+              where = "beforeEnd",
+              ui = tags$div(
+                style = "margin: 15px 0; position: relative;",
+                # Bouton de suppression
+                tags$button(
+                  onclick = sprintf("Shiny.setInputValue('removePlot_%s', '%s');", tab_id, plot_id),
+                  class = "btn btn-danger btn-sm",
+                  style = "position: absolute; right: 10px; top: 10px; z-index: 100;",
+                  "✖"
+                ),
+                plotlyOutput(plot_id, height = "450px")
+              )
+            )
+            
+            # Créer le graphique
+            output[[plot_id]] <- renderPlotly({
+              cat("🔍 DASHBOARD: Creating plot of type", plot_type, "\n")
+              createGenericPlot(df, plot_type, x_col, y_col, color_col, title)
+            })
+            
+            # Fermer la modale
+            removeModal()
+          })
+          
+          # Observer pour supprimer un graphique
+          observeEvent(input[[paste0("removePlot_", tab_id)]], {
+            plot_id <- input[[paste0("removePlot_", tab_id)]]
+            removeUI(
+              selector = sprintf("div:has(> #%s)", plot_id)
+            )
+          })
 
           # Handle special table types
           if (grepl("interface_alloc", gsub_underscore_dash(" ", "_", tolower(table_name)))) {

@@ -486,10 +486,10 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
             }
           }
 
-          # APPROCHE INTERACTIVE: L'utilisateur choisit ses graphiques
+          # INTERACTIVE APPROACH: User chooses their charts
           cat("🔍 DASHBOARD: Setting up interactive plot selection...\n")
           
-          # Créer le bouton pour ouvrir la modale
+          # Create button to open modal
           insertUI(
             selector = paste0("#plots_", tab_id),
             where = "beforeEnd",
@@ -497,70 +497,70 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
               style = "margin: 15px 0;",
               actionButton(
                 inputId = paste0("openPlotModal_", tab_id, "_", tokenUI),
-                label = "📊 Créer un graphique",
+                label = "📊 Create Chart",
                 class = "btn-primary",
                 style = "margin-bottom: 20px;"
               ),
-              # Container pour les graphiques
+              # Container for charts
               div(id = paste0("plotContainer_", tab_id, "_", tokenUI))
             )
           )
           
-          # Créer la modale de configuration
+          # Create configuration modal
           observeEvent(input[[paste0("openPlotModal_", tab_id, "_", tokenUI)]], {
-            # Obtenir les colonnes disponibles
+            # Get available columns
             numeric_cols <- names(df)[sapply(df, is.numeric)]
             categorical_cols <- names(df)[sapply(df, function(x) is.character(x) || is.factor(x))]
             
             showModal(modalDialog(
-              title = "Configuration du graphique",
+              title = "Chart Configuration",
               
-              # Type de graphique
+              # Chart type
               selectInput(
                 paste0("plotType_", tab_id, "_", tokenUI),
-                "Type de graphique:",
+                "Chart Type:",
                 choices = c(
-                  "Barres" = "bar",
-                  "Camembert" = "pie",
-                  "Nuage de points" = "scatter",
-                  "Histogramme" = "histogram",
-                  "Boîte à moustaches" = "box",
-                  "Cascade" = "waterfall"
+                  "Bar" = "bar",
+                  "Pie" = "pie",
+                  "Scatter" = "scatter",
+                  "Histogram" = "histogram",
+                  "Box Plot" = "box",
+                  "Waterfall" = "waterfall"
                 )
               ),
               
-              # Colonnes X et Y
+              # X and Y columns
               selectInput(
                 paste0("xCol_", tab_id, "_", tokenUI),
-                "Colonne X:",
+                "X Column:",
                 choices = c("", categorical_cols, numeric_cols)
               ),
               
               selectInput(
                 paste0("yCol_", tab_id, "_", tokenUI),
-                "Colonne Y:",
+                "Y Column:",
                 choices = c("", numeric_cols)
               ),
               
-              # Colonne de couleur (groupement)
+              # Color column (grouping)
               selectInput(
                 paste0("colorCol_", tab_id, "_", tokenUI),
-                "Colonne de groupement (optionnel):",
-                choices = c("Aucun" = "", categorical_cols)
+                "Grouping Column (optional):",
+                choices = c("None" = "", categorical_cols)
               ),
               
-              # Titre du graphique
+              # Chart title
               textInput(
                 paste0("plotTitle_", tab_id, "_", tokenUI),
-                "Titre du graphique:",
-                value = "Mon graphique"
+                "Chart Title:",
+                value = "My Chart"
               ),
               
               footer = tagList(
-                modalButton("Annuler"),
+                modalButton("Cancel"),
                 actionButton(
                   paste0("createPlot_", tab_id, "_", tokenUI),
-                  "Créer le graphique",
+                  "Create Chart",
                   class = "btn-primary"
                 )
               ),
@@ -570,7 +570,7 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
           
           # Observer pour créer le graphique
           observeEvent(input[[paste0("createPlot_", tab_id, "_", tokenUI)]], {
-            # Récupérer les valeurs
+            # Get selected values
             plot_type <- input[[paste0("plotType_", tab_id, "_", tokenUI)]]
             x_col <- input[[paste0("xCol_", tab_id, "_", tokenUI)]]
             y_col <- input[[paste0("yCol_", tab_id, "_", tokenUI)]]
@@ -579,16 +579,16 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
             
             if (color_col == "") color_col <- NULL
             
-            # Générer un ID unique pour ce graphique
+            # Generate unique ID for this chart
             plot_id <- paste0("plot_", plot_type, "_", tab_id, "_", tokenUI, "_", round(runif(1) * 1000))
             
-            # Insérer le container pour le graphique
+            # Insert container for the chart
             insertUI(
               selector = paste0("#plotContainer_", tab_id, "_", tokenUI),
               where = "beforeEnd",
               ui = tags$div(
                 style = "margin: 15px 0; position: relative;",
-                # Bouton de suppression
+                # Delete button
                 tags$button(
                   onclick = sprintf("Shiny.setInputValue('removePlot_%s', '%s');", tab_id, plot_id),
                   class = "btn btn-danger btn-sm",
@@ -599,17 +599,17 @@ createGenericDashboardUI <- function(id, reactiveReportObject, appName, user = "
               )
             )
             
-            # Créer le graphique
+            # Create the chart
             output[[plot_id]] <- renderPlotly({
               cat("🔍 DASHBOARD: Creating plot of type", plot_type, "\n")
               createGenericPlot(df, plot_type, x_col, y_col, color_col, title)
             })
             
-            # Fermer la modale
+            # Close the modal
             removeModal()
           })
           
-          # Observer pour supprimer un graphique
+          # Observer to remove a chart
           observeEvent(input[[paste0("removePlot_", tab_id)]], {
             plot_id <- input[[paste0("removePlot_", tab_id)]]
             removeUI(

@@ -128,7 +128,7 @@ create_bar_plot <- function(df, x_col, y_col, color_col, title) {
     x = ~get(x_col),
     y = ~total,
     type = "bar",
-    text = ~format(total, big.mark = " ", digits = 0),
+    text = ~format(total, big.mark = " ", scientific = FALSE),
     textposition = "outside",
     marker = list(color = 'steelblue')
   ) %>%
@@ -242,14 +242,14 @@ create_waterfall_plot <- function(df, x_col, y_col, title) {
       prefix = paste0(LETTERS[seq_along(!!sym(x_col))], ". "),
       label = paste0(prefix, !!sym(x_col)),
       measure = "relative",
-      text = format(Value, big.mark = " ")
+      text = format(Value, big.mark = " ", scientific = FALSE)
     )
   
   total <- data.frame(
     label = "Total",
     Value = sum(df_agg$Value, na.rm = TRUE),
     measure = "total",
-    text = format(sum(df_agg$Value, na.rm = TRUE), big.mark = " ")
+    text = format(sum(df_agg$Value, na.rm = TRUE), big.mark = " ", scientific = FALSE)
   )
   
   df_waterfall <- dplyr::bind_rows(df_agg[, c("label", "Value", "measure", "text")], total)

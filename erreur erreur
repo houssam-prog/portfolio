@@ -291,27 +291,43 @@ if agg_reports:
             if currency_rep:
                 df_agg_act_rep = create_aggregated_data(df_act_rep, level)
                 if not df_agg_act_rep.empty:
-                    safe_inject(wb, f'Actuarial_Agg_Level{level}_Rep_Curr', df_agg_act_rep)
-                    print(f"✅ Feuille Actuarial_Agg_Level{level}_Rep_Curr créée")
+                    # Créer la feuille vide d'abord
+                    sheet_name = f'Actuarial_Agg_Level{level}_Rep_Curr'
+                    if sheet_name not in wb.sheetnames:
+                        wb.create_sheet(sheet_name)
+                    safe_inject(wb, sheet_name, df_agg_act_rep)
+                    print(f"✅ Feuille {sheet_name} créée")
             
             if currency_goc:
                 df_agg_act_goc = create_aggregated_data(df_act_goc, level)
                 if not df_agg_act_goc.empty:
-                    safe_inject(wb, f'Actuarial_Agg_Level{level}_GoC_Curr', df_agg_act_goc)
-                    print(f"✅ Feuille Actuarial_Agg_Level{level}_GoC_Curr créée")
+                    # Créer la feuille vide d'abord
+                    sheet_name = f'Actuarial_Agg_Level{level}_GoC_Curr'
+                    if sheet_name not in wb.sheetnames:
+                        wb.create_sheet(sheet_name)
+                    safe_inject(wb, sheet_name, df_agg_act_goc)
+                    print(f"✅ Feuille {sheet_name} créée")
             
             # Créer les données agrégées pour IFRS17
             if currency_rep:
                 df_agg_ifrs_rep = create_aggregated_data(df_ifrs_rep, level)
                 if not df_agg_ifrs_rep.empty:
-                    safe_inject(wb, f'IFRS17_Agg_Level{level}_Rep_Curr', df_agg_ifrs_rep)
-                    print(f"✅ Feuille IFRS17_Agg_Level{level}_Rep_Curr créée")
+                    # Créer la feuille vide d'abord
+                    sheet_name = f'IFRS17_Agg_Level{level}_Rep_Curr'
+                    if sheet_name not in wb.sheetnames:
+                        wb.create_sheet(sheet_name)
+                    safe_inject(wb, sheet_name, df_agg_ifrs_rep)
+                    print(f"✅ Feuille {sheet_name} créée")
             
             if currency_goc:
                 df_agg_ifrs_goc = create_aggregated_data(df_ifrs_goc, level)
                 if not df_agg_ifrs_goc.empty:
-                    safe_inject(wb, f'IFRS17_Agg_Level{level}_GoC_Curr', df_agg_ifrs_goc)
-                    print(f"✅ Feuille IFRS17_Agg_Level{level}_GoC_Curr créée")
+                    # Créer la feuille vide d'abord
+                    sheet_name = f'IFRS17_Agg_Level{level}_GoC_Curr'
+                    if sheet_name not in wb.sheetnames:
+                        wb.create_sheet(sheet_name)
+                    safe_inject(wb, sheet_name, df_agg_ifrs_goc)
+                    print(f"✅ Feuille {sheet_name} créée")
 
 if var_report and os.path.exists(support_dir) and 'TEMP_ASTRA_VAR' in wb.sheetnames:
     try:

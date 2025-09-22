@@ -90,11 +90,17 @@ def create_aggregated_data(df_source, agg_level):
     existing_group_cols = [col for col in group_cols if col in df_agg.columns]
     
     if existing_group_cols:
-        # Identifier les colonnes numériques
+        # Identifier les colonnes numériques (exclure les colonnes de groupement)
         numeric_cols = df_agg.select_dtypes(include=['number']).columns.tolist()
+        # Exclure les colonnes de groupement des colonnes à sommer
+        numeric_cols = [col for col in numeric_cols if col not in existing_group_cols]
         
-        # Grouper et sommer
-        df_agg = df_agg.groupby(existing_group_cols)[numeric_cols].sum().reset_index()
+        if numeric_cols:
+            # Grouper et sommer seulement les colonnes numériques
+            df_agg = df_agg.groupby(existing_group_cols)[numeric_cols].sum().reset_index()
+        else:
+            # Si pas de colonnes numériques à sommer, juste grouper
+            df_agg = df_agg.groupby(existing_group_cols).first().reset_index()
     
     return df_agg
 

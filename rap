@@ -1,0 +1,57 @@
+jai besoin ameliorer ce code cad
+verifier si All_GoC_Actuarial_AoM_Rep_Curr et if All_GoC_IFRS17_AoM_PnL_Rep_Curr  exist donc tu doit ajouter directement _2 sur tous les colonnes
+
+sinon 
+
+
+specific_read <- function(df, appName){
+  if(gsub_underscore_dash(" ", "_", tolower(appName)) == "var_ifrs_17"){
+    
+    df_copies <- data.table()
+    
+    if(any(grepl("All_GoC_Actuarial_AoM_GoC_Curr", df$file_name, ignore.case = TRUE))) {
+      idx_actuarial <- which(grepl("All_GoC_Actuarial_AoM_GoC_Curr", df$file_name, ignore.case = TRUE))[1]
+      
+      copy_actuarial_rep <- df[idx_actuarial]
+      copy_actuarial_rep$file_name <- gsub("All_GoC_Actuarial_AoM_GoC_Curr", "All_GoC_Actuarial_AoM_Rep_Curr", 
+                                          copy_actuarial_rep$file_name, ignore.case = TRUE)
+      
+      original_data <- fread(df$tmp_path[idx_actuarial])
+      
+      new_colnames <- paste0(colnames(original_data), "_2")
+      colnames(original_data) <- new_colnames
+      
+      new_tmp_path <- file.path(dirname(copy_actuarial_rep$tmp_path), 
+                               paste0("All_GoC_Actuarial_AoM_Rep_Curr_", basename(copy_actuarial_rep$tmp_path)))
+      fwrite(original_data, new_tmp_path)
+      copy_actuarial_rep$tmp_path <- new_tmp_path
+      
+      df_copies <- rbind(df_copies, copy_actuarial_rep)
+    }
+    
+    if(any(grepl("All_GoC_IFRS17_AoM_PnL_GoC_Curr", df$file_name, ignore.case = TRUE))) {
+      idx_ifrs17 <- which(grepl("All_GoC_IFRS17_AoM_PnL_GoC_Curr", df$file_name, ignore.case = TRUE))[1]
+      
+      copy_ifrs17_rep <- df[idx_ifrs17]
+      copy_ifrs17_rep$file_name <- gsub("All_GoC_IFRS17_AoM_PnL_GoC_Curr", "All_GoC_IFRS17_AoM_PnL_Rep_Curr", 
+                                       copy_ifrs17_rep$file_name, ignore.case = TRUE)
+      
+      original_data <- fread(df$tmp_path[idx_ifrs17])
+      
+      new_colnames <- paste0(colnames(original_data), "_2")
+      colnames(original_data) <- new_colnames
+      
+      new_tmp_path <- file.path(dirname(copy_ifrs17_rep$tmp_path), 
+                               paste0("All_GoC_IFRS17_AoM_PnL_Rep_Curr_", basename(copy_ifrs17_rep$tmp_path)))
+      fwrite(original_data, new_tmp_path)
+      copy_ifrs17_rep$tmp_path <- new_tmp_path    
+      df_copies <- rbind(df_copies, copy_ifrs17_rep)
+    }
+    
+    if(nrow(df_copies) > 0) {
+      df <- rbind(df, df_copies)
+    }
+  }
+  
+  return(df)
+}

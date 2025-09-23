@@ -9,3 +9,37 @@ Name	Threshold
 0	CLO _fee_range	5%
 
 Control_params
+
+
+
+
+
+
+
+
+
+
+# Récupérer le threshold depuis Control_params
+threshold_value = float(Control_params.iloc[0]['Threshold'].replace('%', '')) / 100
+
+# Fonction pour créer la colonne check
+def get_check_value(row):
+    moyenne_fixed = row['moyenne_fixed_fee_input_mgt']
+    annual_fee = row['annual_fee']
+    comparaison_type = row['comparaison']
+    
+    if pd.isna(moyenne_fixed) or pd.isna(annual_fee):
+        return 'N/A'
+    
+    if comparaison_type == 'exact':
+        return 'OK' if moyenne_fixed == annual_fee else 'KO'
+    
+    elif comparaison_type == 'range':
+        lower_bound = annual_fee * (1 - threshold_value)
+        upper_bound = annual_fee * (1 + threshold_value)
+        return 'OK' if lower_bound <= moyenne_fixed <= upper_bound else 'KO'
+    
+    return 'N/A'
+
+# Ajouter la colonne check
+comparaison['check'] = comparaison.apply(get_check_value, axis=1)

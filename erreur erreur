@@ -397,3 +397,46 @@ wb.save(local_path)
 final_path = os.path.join(output_path, local_path)
 shutil.move(local_path, final_path)
 print(f"✅ Fichier sauvegardé : {final_path}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Supprimer la feuille template du fichier final
+if 'TEMP_ASTRA_VAR' in wb.sheetnames:
+    wb.remove(wb['TEMP_ASTRA_VAR'])
+    print("🗑️ Feuille template 'TEMP_ASTRA_VAR' supprimée")
+
+# Réorganiser l'ordre des feuilles : VAR d'abord, puis les autres
+sheet_order = []
+remaining_sheets = []
+
+# 1. D'abord toutes les feuilles VAR
+for sheet_name in sorted(wb.sheetnames):
+    if sheet_name.startswith('VAR_'):
+        sheet_order.append(sheet_name)
+
+# 2. Ensuite toutes les autres feuilles (sauf celles déjà ajoutées)
+for sheet_name in sorted(wb.sheetnames):
+    if sheet_name not in sheet_order:
+        sheet_order.append(sheet_name)
+
+# Réorganiser les feuilles dans le workbook
+wb._sheets = [wb[sheet_name] for sheet_name in sheet_order]
+for i, sheet_name in enumerate(sheet_order):
+    wb[sheet_name].sheet_state = 'visible'
+
+print(f"📋 Ordre des feuilles : {sheet_order}")

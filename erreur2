@@ -11,3 +11,57 @@ query =(f"""
 
 df = spark.sql(query).toPandas()
 display(df)
+
+
+
+import os, shutil, datetime, pandas as pd
+from openpyxl import load_workbook
+
+# Parameters
+environment = dbutils.widgets.get("environment")
+region = dbutils.widgets.get("region")
+type_of_business = dbutils.widgets.get("type_of_business")
+year = dbutils.widgets.get("year")
+
+# Query to get data
+query = f"""
+  SELECT * FROM fndt.pv_ip_budget_investment_capacity_output_fndt_{environment}
+  WHERE region = '{region}'
+  AND type_of_business = '{type_of_business}'
+  AND year = '{year}'
+"""
+
+# Execute query and get DataFrame
+df = spark.sql(query).toPandas()
+display(df)
+
+# Template and output configuration
+template_dir = "template_ip_locale.xlsx"
+run_date = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+local_path = f"IP_Budget_Investment_Report_{run_date}.xlsx"
+output_path = dbutils.widgets.get("output_path") if dbutils.widgets.get("output_path") else "/tmp/"
+
+if not os.path.exists(output_path):
+    os.makedirs(output_path)
+
+# Load template and add new sheet
+wb = load_workbook(template_dir)
+sheet_name = f"IP_Budget_Data_{region}_{type_of_business}_{year}"
+wb.create_sheet(sheet_name)
+
+# Add DataFrame to new sheet
+ws = wb[sheet_name]
+for r_idx, row in enumerate(df.values, 1):
+    for c_idx, value in enumerate(row, 1):
+        ws.cell(row=r_idx, column=c_idx, value=value)
+
+# Add headers
+for c_idx, col_name in enumerate(df.columns, 1):
+    ws.cell(row=1, column=c_idx, value=col_name)
+
+# Save workbook
+wb.save(local_path)
+final_path = os.path.join(output_path, local_path)
+shutil.move(local_path, final_path)
+
+print(f"✅ File saved: {final_path}")
